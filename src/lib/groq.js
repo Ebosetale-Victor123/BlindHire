@@ -1,5 +1,3 @@
-import Groq from 'groq-sdk';
-
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const MODEL = 'llama-3.3-70b-versatile';
 
@@ -7,20 +5,19 @@ export const isGroqConfigured = Boolean(
   GROQ_API_KEY && !GROQ_API_KEY.includes('your_groq')
 );
 
-// In dev, route through the Vite proxy (/api/groq -> https://api.groq.com)
-// so the browser never has to resolve api.groq.com directly — some networks
-// block that host for client-side requests, causing ERR_NAME_NOT_RESOLVED.
-// The SDK builds requests with `new URL(baseURL + path)`, which throws on a
-// bare path like '/api/groq' (no scheme/host), so use an absolute URL.
-const groq = isGroqConfigured
-  ? new Groq({
-      apiKey: GROQ_API_KEY,
-      baseURL: import.meta.env.DEV && typeof window !== 'undefined'
-        ? `${window.location.origin}/api/groq`
-        : undefined,
-      dangerouslyAllowBrowser: true,
-    })
-  : null;
+// All Groq calls go through same-origin /api/groq — a Vite proxy in dev
+// (vite.config.js) and a Vercel serverless function in production
+// (api/groq.js) — so the browser never calls api.groq.com directly and the
+// real API key never reaches client code.
+async function callGroq({ messages, temperature = 0.3, response_format }) {
+  const res = await fetch('/api/groq', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: MODEL, messages, temperature, response_format }),
+  });
+  if (!res.ok) throw new Error(`Groq API error: ${res.status}`);
+  return res.json();
+}
 
 // ============================================================
 // Personal identifier stripping (Blind Mode)
@@ -166,8 +163,7 @@ export async function scoreCandidate(cvText, jobDescription, blindMode = true) {
   }
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: MODEL,
+    const completion = await callGroq({
       temperature: 0.3,
       response_format: { type: 'json_object' },
       messages: [
@@ -281,8 +277,7 @@ export async function extractCandidateIdentity(cvText) {
   }
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: MODEL,
+    const completion = await callGroq({
       temperature: 0.1,
       response_format: { type: 'json_object' },
       messages: [
@@ -426,8 +421,7 @@ export async function checkJobAdBias(jobDescription) {
   }
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: MODEL,
+    const completion = await callGroq({
       temperature: 0.2,
       response_format: { type: 'json_object' },
       messages: [
@@ -522,8 +516,7 @@ export async function generateLearningPath({ jobRole, score, gaps = [] }) {
   if (!isGroqConfigured) return null;
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: MODEL,
+    const completion = await callGroq({
       temperature: 0.7,
       response_format: { type: 'json_object' },
       messages: [
@@ -626,8 +619,7 @@ export async function generateGrowthPlan({ employee }) {
   if (!isGroqConfigured) return null;
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: MODEL,
+    const completion = await callGroq({
       temperature: 0.7,
       response_format: { type: 'json_object' },
       messages: [

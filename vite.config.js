@@ -25,12 +25,14 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // Routes Groq API calls through the Vite dev server so the browser
         // never has to resolve api.groq.com directly (avoids ERR_NAME_NOT_RESOLVED
-        // on networks that block that host for client-side requests).
+        // on networks that block that host for client-side requests). Mirrors
+        // the api/groq.js Vercel function: src/lib/groq.js POSTs to the bare
+        // /api/groq path in both dev and prod.
         '/api/groq': {
           target: 'https://api.groq.com',
           changeOrigin: true,
           agent: extraCaAgent,
-          rewrite: (path) => path.replace(/^\/api\/groq/, ''),
+          rewrite: () => '/openai/v1/chat/completions',
           headers: {
             Authorization: `Bearer ${env.VITE_GROQ_API_KEY}`,
           },
