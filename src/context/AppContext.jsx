@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   isSupabaseConfigured,
   supabase,
@@ -18,15 +18,53 @@ import {
 
 const AppContext = createContext(null);
 
+// ----------------------------------------------------------
+// Local cache: lets repeat visits render instantly with the last
+// known data while a fresh copy is fetched in the background.
+// ----------------------------------------------------------
+const CACHE_KEY = 'blindhire_cache';
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+function getCachedData() {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+    const { data, timestamp } = JSON.parse(cached);
+    if (Date.now() - timestamp > CACHE_DURATION) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedData(data) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+  } catch {
+    // Fail silently if storage is full or unavailable
+  }
+}
+
+export function clearAppCache() {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export function AppProvider({ children }) {
-  const [employees, setEmployees] = useState(sampleEmployees);
-  const [jobs, setJobs] = useState(sampleJobs);
-  const [applications, setApplications] = useState(sampleApplications);
-  const [onboarding, setOnboarding] = useState(sampleOnboarding);
-  const [attendance, setAttendance] = useState(() => generateAttendanceRecords());
-  const [leaveRequests, setLeaveRequests] = useState(sampleLeaveRequests);
-  const [payroll, setPayroll] = useState(() => generatePayrollRecords());
-  const [loading, setLoading] = useState(true);
+  const initialCacheRef = useRef(getCachedData());
+  const cached = initialCacheRef.current;
+
+  const [employees, setEmployees] = useState(() => cached?.employees ?? sampleEmployees);
+  const [jobs, setJobs] = useState(() => cached?.jobs ?? sampleJobs);
+  const [applications, setApplications] = useState(() => cached?.applications ?? sampleApplications);
+  const [onboarding, setOnboarding] = useState(() => cached?.onboarding ?? sampleOnboarding);
+  const [attendance, setAttendance] = useState(() => cached?.attendance ?? generateAttendanceRecords());
+  const [leaveRequests, setLeaveRequests] = useState(() => cached?.leaveRequests ?? sampleLeaveRequests);
+  const [payroll, setPayroll] = useState(() => cached?.payroll ?? generatePayrollRecords());
+  const [loading, setLoading] = useState(() => !cached);
   const [skillBridgeStats, setSkillBridgeStats] = useState({
     learningPathsSent: 0,
     growthPlansGenerated: 0,
@@ -35,7 +73,9 @@ export function AppProvider({ children }) {
 
   // ----------------------------------------------------------
   // Initial load: seed Supabase (if configured) then hydrate
-  // state from the database. Falls back to sample data.
+  // state from the database. Falls back to sample/cached data.
+  // Runs in the background — if cached data exists it's already
+  // on screen, so this just refreshes it once the network responds.
   // ----------------------------------------------------------
   useEffect(() => {
     let cancelled = false;
@@ -60,19 +100,25 @@ export function AppProvider({ children }) {
           fetchAll('jobs'),
           fetchAll('applications'),
           fetchAll('onboarding'),
-          fetchAll('attendance'),
+          fetchAll('attendance', 'created_at', 'id, employee_id, date, clock_in, clock_out, status, hours_worked'),
           fetchAll('leave_requests'),
           fetchAll('payroll'),
         ]);
 
         if (cancelled) return;
-        if (emp?.length) setEmployees(emp);
-        if (jb?.length) setJobs(jb);
-        if (ap?.length) setApplications(ap);
-        if (ob?.length) setOnboarding(ob);
-        if (at?.length) setAttendance(at);
-        if (lv?.length) setLeaveRequests(lv);
-        if (pr?.length) setPayroll(pr);
+
+        const fresh = {};
+        if (emp?.length) { setEmployees(emp); fresh.employees = emp; }
+        if (jb?.length) { setJobs(jb); fresh.jobs = jb; }
+        if (ap?.length) { setApplications(ap); fresh.applications = ap; }
+        if (ob?.length) { setOnboarding(ob); fresh.onboarding = ob; }
+        if (at?.length) { setAttendance(at); fresh.attendance = at; }
+        if (lv?.length) { setLeaveRequests(lv); fresh.leaveRequests = lv; }
+        if (pr?.length) { setPayroll(pr); fresh.payroll = pr; }
+
+        if (Object.keys(fresh).length) {
+          setCachedData({ ...cached, ...fresh });
+        }
       } catch (err) {
         console.error('Failed to initialize data from Supabase:', err.message);
       } finally {

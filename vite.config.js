@@ -20,6 +20,27 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            supabase: ['@supabase/supabase-js'],
+            charts: ['recharts'],
+            ui: ['lucide-react', 'framer-motion'],
+            dnd: ['@hello-pangea/dnd'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1000,
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+        },
+      },
+    },
     server: {
       port: 5173,
       proxy: {

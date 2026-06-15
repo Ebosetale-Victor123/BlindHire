@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Menu, Search, Bell, ChevronDown, User, Settings, LogOut, X } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp, clearAppCache } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { getInitials, avatarColor, formatDateTime } from '../../lib/utils';
 import AccountModal from './AccountModal';
@@ -53,6 +53,7 @@ export default function Header({ onOpenMobileSidebar }) {
     } catch (err) {
       console.error('Sign out failed:', err.message);
     }
+    clearAppCache();
     navigate('/login', { replace: true });
   };
 

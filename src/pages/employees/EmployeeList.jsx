@@ -10,6 +10,7 @@ import Toast, { useToast } from '../../components/ui/Toast';
 import { Select } from '../../components/ui/Input';
 import PageHeader from '../../components/shared/PageHeader';
 import RemoveEmployeeModal from '../../components/shared/RemoveEmployeeModal';
+import { SkeletonRow } from '../../components/ui/Skeleton';
 import EmployeeForm from './EmployeeForm';
 import { useEmployees } from '../../hooks/useEmployees';
 import { DEPARTMENTS, EMPLOYMENT_TYPES, EMPLOYEE_STATUSES } from '../../data/sampleData';
@@ -18,7 +19,7 @@ import { cn, formatCurrency, getInitials, avatarColor, STATUS_VARIANTS, titleCas
 export default function EmployeeList() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
+  const { employees, addEmployee, updateEmployee, deleteEmployee, loading } = useEmployees();
   const { toast, showToast, hideToast } = useToast();
 
   const [search, setSearch] = useState('');
@@ -180,12 +181,18 @@ export default function EmployeeList() {
           </div>
         </div>
 
-        <Table
-          columns={columns}
-          data={filtered}
-          onRowClick={(e) => navigate(`/employees/${e.id}`)}
-          emptyMessage="No employees match your filters"
-        />
+        {loading ? (
+          <div className="divide-y divide-slate-50">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
+          </div>
+        ) : (
+          <Table
+            columns={columns}
+            data={filtered}
+            onRowClick={(e) => navigate(`/employees/${e.id}`)}
+            emptyMessage="No employees match your filters"
+          />
+        )}
       </Card>
 
       <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Employee" size="lg">

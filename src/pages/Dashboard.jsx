@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Card, { CardHeader } from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
+import { SkeletonCard } from '../components/ui/Skeleton';
 import Button from '../components/ui/Button';
 import PageHeader from '../components/shared/PageHeader';
 import { useApp } from '../context/AppContext';
@@ -30,7 +31,7 @@ const PIE_COLORS = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { jobs, payroll, applications, recentActivity, skillBridgeStats } = useApp();
+  const { jobs, payroll, applications, recentActivity, skillBridgeStats, loading } = useApp();
   const { stats } = useEmployees();
   const { todayStats, trend } = useAttendance();
 
@@ -93,12 +94,18 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <StatCard icon={Users} label="Total Employees" value={stats.total} color="primary" />
-        <StatCard icon={Briefcase} label="Open Positions" value={openPositions} color="accent" />
-        <StatCard icon={UserCheck} label="Present Today" value={`${todayStats.present + todayStats.late}/${todayStats.total}`} color="success" />
-        <StatCard icon={Wallet} label="Pending Payroll" value={formatCurrency(pendingPayroll)} color="warning" />
-        <StatCard icon={CheckCircle2} label="Hired Candidates" value={hiredCandidates} color="success" />
-        <StatCard icon={XCircle} label="Rejected Candidates" value={rejectedCandidates} color="danger" />
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : (
+          <>
+            <StatCard icon={Users} label="Total Employees" value={stats.total} color="primary" />
+            <StatCard icon={Briefcase} label="Open Positions" value={openPositions} color="accent" />
+            <StatCard icon={UserCheck} label="Present Today" value={`${todayStats.present + todayStats.late}/${todayStats.total}`} color="success" />
+            <StatCard icon={Wallet} label="Pending Payroll" value={formatCurrency(pendingPayroll)} color="warning" />
+            <StatCard icon={CheckCircle2} label="Hired Candidates" value={hiredCandidates} color="success" />
+            <StatCard icon={XCircle} label="Rejected Candidates" value={rejectedCandidates} color="danger" />
+          </>
+        )}
       </div>
 
       {/* Charts row */}

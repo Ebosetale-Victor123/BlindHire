@@ -58,14 +58,15 @@ export async function seedTableIfEmpty(table, rows) {
 
 /**
  * Fetch all rows from a table. Returns null on failure so callers
- * can fall back to sample data.
+ * can fall back to sample data. `columns` lets callers request only
+ * the fields they need to cut down on payload size for large tables.
  */
-export async function fetchAll(table, orderBy = 'created_at') {
+export async function fetchAll(table, orderBy = 'created_at', columns = '*') {
   if (!isSupabaseConfigured) return null;
   try {
     const { data, error } = await supabase
       .from(table)
-      .select('*')
+      .select(columns)
       .order(orderBy, { ascending: true });
     if (error) throw error;
     return data;
