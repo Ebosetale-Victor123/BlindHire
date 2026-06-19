@@ -16,8 +16,8 @@ export default function StatCard({ icon: Icon, label, value, change, color = 'pr
         {Icon && <Icon size={22} />}
       </div>
       <div className="min-w-0">
-        <p className="text-sm text-slate-500 truncate">{label}</p>
-        <div className="flex items-baseline gap-2">
+        <p className="text-sm text-slate-500 leading-snug">{label}</p>
+        <div className="flex items-baseline gap-2 flex-wrap">
           <p className="text-2xl font-bold text-slate-800">{value}</p>
           {change && (
             <span
