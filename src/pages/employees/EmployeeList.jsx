@@ -54,9 +54,18 @@ export default function EmployeeList() {
   }, [employees, search, department, status, employmentType]);
 
   const handleAddEmployee = async (data) => {
-    const employee_id = `BH-${new Date().getFullYear()}-${String(1000 + employees.length + 1)}`;
-    await addEmployee({ ...data, employee_id, avatar_url: null });
+    const nextNum = employees.reduce((max, e) => {
+      const match = /^BH-\d{4}-(\d+)$/.exec(e.employee_id || '');
+      return match ? Math.max(max, parseInt(match[1], 10)) : max;
+    }, 1000) + 1;
+    const employee_id = `BH-${new Date().getFullYear()}-${nextNum}`;
+    const result = await addEmployee({ ...data, employee_id, avatar_url: null });
+    if (!result) {
+      showToast('Failed to save employee. Please try again.', 'error');
+      return;
+    }
     setShowAddModal(false);
+    showToast('Employee added successfully', 'success');
   };
 
   const handleEditEmployee = async (data) => {

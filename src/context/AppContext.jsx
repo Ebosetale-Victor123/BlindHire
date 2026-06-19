@@ -147,6 +147,8 @@ export function AppProvider({ children }) {
         return data;
       } catch (err) {
         console.error('Failed to add employee to Supabase:', err.message);
+        setEmployees((prev) => prev.filter((e) => e.id !== localRecord.id));
+        return null;
       }
     }
     return localRecord;

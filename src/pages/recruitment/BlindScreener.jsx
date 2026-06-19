@@ -289,12 +289,17 @@ export default function BlindScreener() {
         <Card className="space-y-4">
           <CardHeader title="Candidate CV" subtitle="Paste a CV and select the role to evaluate against" />
 
-          <Select label="Load Sample Application" onChange={handleLoadSample} defaultValue="">
-            <option value="" disabled>Choose a sample candidate...</option>
-            {applications.map((a) => (
-              <option key={a.id} value={a.id}>{a.candidate_name} — {jobs.find((j) => j.id === a.job_id)?.title}</option>
-            ))}
-          </Select>
+          <div>
+            <p className="text-xs text-slate-500 mb-1.5">
+              Select a candidate to screen — identity will be revealed or hidden based on Blind Mode setting
+            </p>
+            <Select label="Load Sample Application" onChange={handleLoadSample} defaultValue="">
+              <option value="" disabled>Choose a sample candidate...</option>
+              {applications.map((a) => (
+                <option key={a.id} value={a.id}>{a.candidate_name} — {jobs.find((j) => j.id === a.job_id)?.title}</option>
+              ))}
+            </Select>
+          </div>
 
           <Select label="Job Role" value={selectedJobId} onChange={(e) => setSelectedJobId(e.target.value)}>
             {jobs.map((j) => (

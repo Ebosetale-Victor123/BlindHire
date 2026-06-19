@@ -40,12 +40,13 @@ export const TABLES = [
 export async function seedTableIfEmpty(table, rows) {
   if (!isSupabaseConfigured || !rows?.length) return false;
   try {
-    const { count, error: countError } = await supabase
+    const { data: existing, error: checkError } = await supabase
       .from(table)
-      .select('id', { count: 'exact', head: true });
+      .select('id')
+      .limit(1);
 
-    if (countError) throw countError;
-    if (count && count > 0) return false;
+    if (checkError) throw checkError;
+    if (existing && existing.length > 0) return false;
 
     const { error: insertError } = await supabase.from(table).insert(rows);
     if (insertError) throw insertError;
