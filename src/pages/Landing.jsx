@@ -99,19 +99,23 @@ export default function Landing() {
     <div className="min-h-screen bg-white text-slate-800">
       {/* Nav */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 h-16">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
-              <ShieldCheck size={20} className="text-white" />
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 px-4 sm:px-6 h-16">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
+              <ShieldCheck size={18} className="text-white" />
             </div>
-            <span className="font-bold text-lg">BlindHire</span>
+            <span className="font-bold text-base sm:text-lg truncate">BlindHire</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate('/employee-portal')}>
-              Employee Portal <ArrowRight size={16} />
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <Button variant="outline" size="sm" className="sm:px-4 sm:py-2 sm:text-sm" onClick={() => navigate('/employee-portal')}>
+              <span className="hidden sm:inline">Employee Portal</span>
+              <span className="sm:hidden">Portal</span>
+              <ArrowRight size={14} className="hidden sm:inline" />
             </Button>
-            <Button onClick={() => navigate('/dashboard')}>
-              Launch Dashboard <ArrowRight size={16} />
+            <Button size="sm" className="sm:px-4 sm:py-2 sm:text-sm" onClick={() => navigate('/dashboard')}>
+              <span className="hidden sm:inline">Launch Dashboard</span>
+              <span className="sm:hidden">Dashboard</span>
+              <ArrowRight size={14} className="hidden sm:inline" />
             </Button>
           </div>
         </div>
