@@ -6,7 +6,7 @@ import {
 } from 'date-fns';
 import {
   ShieldCheck, ArrowRight, Mail, Briefcase, Building2, CalendarDays, UserCheck,
-  Clock, UserX, Printer, FileText, LogOut, CheckCircle2, User,
+  Clock, UserX, Printer, FileText, LogOut, CheckCircle2, User, Banknote, AlertCircle,
 } from 'lucide-react';
 import Card, { CardHeader } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -16,6 +16,7 @@ import StatCard from '../../components/ui/StatCard';
 import { Input, Select, Textarea } from '../../components/ui/Input';
 import { useApp } from '../../context/AppContext';
 import { sendLeaveRequestNotification } from '../../lib/emailjs';
+import { maskAccountNumber } from '../../lib/paystack';
 import { LEAVE_ENTITLEMENT_DAYS } from '../../data/sampleData';
 import {
   cn, formatCurrency, formatDate, getInitials, avatarColor, STATUS_VARIANTS, titleCase,
@@ -433,7 +434,7 @@ function LeaveRequestTab({ employee }) {
 // Tab 4 — My Payslip
 // ============================================================
 function PayslipTab({ employee }) {
-  const { payroll } = useApp();
+  const { payroll, transactions } = useApp();
   const [periodKey, setPeriodKey] = useState(null);
 
   const records = useMemo(
@@ -454,6 +455,12 @@ function PayslipTab({ employee }) {
   }, [records, periodKey]);
 
   const record = records.find((r) => `${r.month}-${r.year}` === periodKey);
+
+  const paymentTx = useMemo(() => {
+    if (!record) return null;
+    return transactions.find((t) => t.payroll_id === record.id && t.employee_id === employee.id) || null;
+  }, [record, transactions, employee.id]);
+
   const handlePrint = () => window.print();
 
   return (
@@ -529,6 +536,43 @@ function PayslipTab({ employee }) {
             <div className="flex items-center justify-between rounded-xl bg-success-50 border border-success-100 px-5 py-4">
               <span className="text-sm font-semibold text-success-700">Net Pay</span>
               <span className="text-2xl font-bold text-success-700">{formatCurrency(record.net_pay)}</span>
+            </div>
+
+            {/* Payment status */}
+            <div className={cn(
+              'mt-4 flex items-start gap-3 rounded-xl px-4 py-3 text-sm',
+              record.status === 'paid' ? 'bg-success-50 border border-success-100 text-success-800'
+              : paymentTx?.status === 'failed' ? 'bg-danger-50 border border-danger-100 text-danger-800'
+              : 'bg-slate-50 border border-slate-100 text-slate-600'
+            )}>
+              {record.status === 'paid' ? (
+                <>
+                  <Banknote size={18} className="shrink-0 mt-0.5 text-success-600" />
+                  <div>
+                    <p className="font-semibold">Payment Sent</p>
+                    <p className="text-xs mt-0.5">
+                      Transferred to {employee.bank_name} · {maskAccountNumber(employee.account_number)}
+                      {record.paid_at && ` on ${new Date(record.paid_at).toLocaleDateString('en-NG', { dateStyle: 'medium' })}`}
+                    </p>
+                  </div>
+                </>
+              ) : paymentTx?.status === 'failed' ? (
+                <>
+                  <AlertCircle size={18} className="shrink-0 mt-0.5 text-danger-600" />
+                  <div>
+                    <p className="font-semibold">Transfer Failed</p>
+                    <p className="text-xs mt-0.5">{paymentTx.error_message || 'Contact HR for details.'}</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Clock size={18} className="shrink-0 mt-0.5 text-slate-400" />
+                  <div>
+                    <p className="font-semibold">Awaiting Disbursement</p>
+                    <p className="text-xs mt-0.5">HR has not yet disbursed this payroll cycle.</p>
+                  </div>
+                </>
+              )}
             </div>
 
             <p className="text-xs text-slate-400 text-center mt-6">

@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { PlayCircle, Wallet, Users, TrendingDown, Receipt, CheckCircle2 } from 'lucide-react';
+import {
+  PlayCircle, Wallet, Users, TrendingDown, Receipt, CheckCircle2,
+  SendHorizonal, XCircle, AlertTriangle, Loader2, ShieldCheck,
+} from 'lucide-react';
 import Card, { CardHeader } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Table from '../../components/ui/Table';
@@ -11,14 +14,16 @@ import { Select } from '../../components/ui/Input';
 import { useApp } from '../../context/AppContext';
 import { usePayroll } from '../../hooks/usePayroll';
 import { cn, formatCurrency, getInitials, avatarColor, STATUS_VARIANTS, titleCase } from '../../lib/utils';
+import { getBankCode, createRecipient, initiateTransfer, maskAccountNumber } from '../../lib/paystack';
 
 export default function PayrollDashboard({ autoRun, onAutoRunHandled, onViewPayslip }) {
-  const { employees } = useApp();
-  const { months, getRecordsFor, getSummary, getDepartmentCosts, runPayroll } = usePayroll();
+  const { employees, transactions, addTransaction, updateTransaction, setPayrollRecords } = useApp();
+  const { months, getRecordsFor, getSummary, getDepartmentCosts, runPayroll, payroll } = usePayroll();
 
   const [periodKey, setPeriodKey] = useState(null);
   const [running, setRunning] = useState(false);
   const [justRan, setJustRan] = useState(false);
+  const [showDisburse, setShowDisburse] = useState(false);
 
   useEffect(() => {
     if (!periodKey && months.length) setPeriodKey(`${months[0].month}-${months[0].year}`);
@@ -42,6 +47,14 @@ export default function PayrollDashboard({ autoRun, onAutoRunHandled, onViewPays
   const records = selected ? getRecordsFor(selected.month, selected.year) : [];
   const summary = selected ? getSummary(selected.month, selected.year) : { gross: 0, deductions: 0, net: 0 };
   const deptCosts = selected ? getDepartmentCosts(selected.month, selected.year) : [];
+
+  // Check if this period has already been disbursed
+  const periodDisbursed = useMemo(() => {
+    if (!records.length) return false;
+    return records.some((r) => r.status === 'paid');
+  }, [records]);
+
+  const hasProcessed = useMemo(() => records.some((r) => r.status === 'processed'), [records]);
 
   const handleRun = async () => {
     if (!selected) return;
@@ -99,6 +112,16 @@ export default function PayrollDashboard({ autoRun, onAutoRunHandled, onViewPays
                 <Button onClick={handleRun} loading={running}>
                   <PlayCircle size={16} /> Run Payroll
                 </Button>
+                {hasProcessed && !periodDisbursed && (
+                  <Button variant="accent" onClick={() => setShowDisburse(true)}>
+                    <SendHorizonal size={16} /> Disburse
+                  </Button>
+                )}
+                {periodDisbursed && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success-700 bg-success-50 border border-success-200 px-2.5 py-1 rounded-full">
+                    <CheckCircle2 size={12} /> Disbursed
+                  </span>
+                )}
               </div>
             }
           />
@@ -113,6 +136,14 @@ export default function PayrollDashboard({ autoRun, onAutoRunHandled, onViewPays
                 <div className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-lg bg-success-50 text-success-700 text-sm font-medium">
                   <CheckCircle2 size={16} className="shrink-0" />
                   Payroll for {selected.month} {selected.year} processed for {records.length} employees.
+                  {!periodDisbursed && (
+                    <button
+                      onClick={() => setShowDisburse(true)}
+                      className="ml-auto underline text-success-700 font-semibold whitespace-nowrap"
+                    >
+                      Disburse now →
+                    </button>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -143,7 +174,11 @@ export default function PayrollDashboard({ autoRun, onAutoRunHandled, onViewPays
               { key: 'tax', header: 'Tax (PAYE)', render: (r) => formatCurrency(r.tax) },
               { key: 'pension', header: 'Pension', render: (r) => formatCurrency(r.pension) },
               { key: 'net_pay', header: 'Net Pay', render: (r) => <span className="font-semibold text-slate-800">{formatCurrency(r.net_pay)}</span> },
-              { key: 'status', header: 'Status', render: (r) => <Badge variant={STATUS_VARIANTS[r.status] || 'default'} dot>{titleCase(r.status)}</Badge> },
+              {
+                key: 'status',
+                header: 'Status',
+                render: (r) => <Badge variant={STATUS_VARIANTS[r.status] || 'default'} dot>{titleCase(r.status)}</Badge>,
+              },
               {
                 key: 'actions',
                 header: '',
@@ -174,6 +209,299 @@ export default function PayrollDashboard({ autoRun, onAutoRunHandled, onViewPays
           </ResponsiveContainer>
         </Card>
       </div>
+
+      {showDisburse && (
+        <DisburseModal
+          records={records}
+          employeeMap={employeeMap}
+          period={selected}
+          transactions={transactions}
+          addTransaction={addTransaction}
+          updateTransaction={updateTransaction}
+          setPayrollRecords={setPayrollRecords}
+          onClose={() => setShowDisburse(false)}
+        />
+      )}
     </div>
   );
+}
+
+// ============================================================
+// Disburse Modal
+// ============================================================
+const STEP_IDLE = 'idle';
+const STEP_PROCESSING = 'processing';
+const STEP_DONE = 'done';
+
+function DisburseModal({ records, employeeMap, period, transactions, addTransaction, updateTransaction, setPayrollRecords, onClose }) {
+  const [step, setStep] = useState(STEP_IDLE);
+  const [progress, setProgress] = useState([]); // { employeeId, name, amount, status, error }
+  const [summary, setSummary] = useState({ success: 0, failed: 0, total: 0 });
+
+  const eligibleRecords = useMemo(
+    () => records.filter((r) => r.status === 'processed'),
+    [records]
+  );
+
+  const handleDisburse = useCallback(async () => {
+    setStep(STEP_PROCESSING);
+
+    const initProgress = eligibleRecords.map((r) => {
+      const emp = employeeMap[r.employee_id];
+      return {
+        employeeId: r.employee_id,
+        payrollId: r.id,
+        name: emp ? `${emp.first_name} ${emp.last_name}` : 'Unknown',
+        amount: r.net_pay,
+        bankName: emp?.bank_name || '',
+        accountNumber: emp?.account_number || '',
+        status: 'pending',
+        error: null,
+      };
+    });
+    setProgress(initProgress);
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < eligibleRecords.length; i++) {
+      const record = eligibleRecords[i];
+      const emp = employeeMap[record.employee_id];
+
+      const updateRow = (patch) => {
+        setProgress((prev) => prev.map((p, idx) => idx === i ? { ...p, ...patch } : p));
+      };
+
+      if (!emp?.bank_name || !emp?.account_number) {
+        updateRow({ status: 'failed', error: 'Missing bank details' });
+        failedCount++;
+        continue;
+      }
+
+      const bankCode = getBankCode(emp.bank_name);
+      if (!bankCode) {
+        updateRow({ status: 'failed', error: `Unknown bank: ${emp.bank_name}` });
+        failedCount++;
+        continue;
+      }
+
+      updateRow({ status: 'processing' });
+
+      const reference = `BH-${period.month.slice(0, 3).toUpperCase()}-${period.year}-${record.employee_id.slice(0, 8)}-${Date.now()}`;
+
+      // Save to Supabase BEFORE calling Paystack
+      let txRecord;
+      try {
+        txRecord = await addTransaction({
+          employee_id: record.employee_id,
+          payroll_id: record.id,
+          reference,
+          amount: Math.round(record.net_pay * 100), // store in kobo
+          status: 'pending',
+        });
+      } catch (err) {
+        updateRow({ status: 'failed', error: 'Failed to save transaction record' });
+        failedCount++;
+        continue;
+      }
+
+      try {
+        // Create transfer recipient
+        const recipient = await createRecipient({
+          name: `${emp.first_name} ${emp.last_name}`,
+          accountNumber: emp.account_number,
+          bankCode,
+        });
+
+        // Update with recipient code
+        await updateTransaction(txRecord.id, { recipient_code: recipient.recipient_code });
+
+        // Initiate transfer
+        const transfer = await initiateTransfer({
+          amount: record.net_pay,
+          recipientCode: recipient.recipient_code,
+          reference,
+          reason: `BlindHire Payroll — ${period.month} ${period.year}`,
+        });
+
+        // Update transaction as success
+        await updateTransaction(txRecord.id, {
+          status: 'success',
+          transfer_code: transfer.transfer_code,
+        });
+
+        // Mark payroll record as paid
+        await setPayrollRecords([{ ...record, status: 'paid', paid_at: new Date().toISOString(), transaction_id: txRecord.id }]);
+
+        updateRow({ status: 'success' });
+        successCount++;
+      } catch (err) {
+        // Update transaction as failed (never abort the batch)
+        if (txRecord?.id) {
+          await updateTransaction(txRecord.id, { status: 'failed', error_message: err.message });
+        }
+        updateRow({ status: 'failed', error: err.message });
+        failedCount++;
+      }
+    }
+
+    setSummary({ success: successCount, failed: failedCount, total: eligibleRecords.length });
+    setStep(STEP_DONE);
+  }, [eligibleRecords, employeeMap, period, addTransaction, updateTransaction, setPayrollRecords]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-slate-800">Disburse Payroll</h2>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-warning-50 text-warning-700 border border-warning-200">
+                🔶 Test Mode
+              </span>
+            </div>
+            <p className="text-sm text-slate-500 mt-0.5">{period.month} {period.year} — {eligibleRecords.length} employees</p>
+          </div>
+          {step !== STEP_PROCESSING && (
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+              <XCircle size={20} />
+            </button>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 px-6 py-4">
+          {step === STEP_IDLE && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-warning-50 border border-warning-100 text-sm text-warning-800">
+                <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Test Mode — No real money moves</p>
+                  <p className="mt-1">This is a Paystack test environment. Transfers are simulated and will not debit any real account.</p>
+                </div>
+              </div>
+
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left">
+                    <th className="pb-2 font-medium text-slate-500">Employee</th>
+                    <th className="pb-2 font-medium text-slate-500">Bank</th>
+                    <th className="pb-2 font-medium text-slate-500">Account</th>
+                    <th className="pb-2 font-medium text-slate-500 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eligibleRecords.map((r) => {
+                    const emp = employeeMap[r.employee_id];
+                    return (
+                      <tr key={r.id} className="border-b border-slate-50">
+                        <td className="py-2.5 font-medium text-slate-700">
+                          {emp ? `${emp.first_name} ${emp.last_name}` : '—'}
+                        </td>
+                        <td className="py-2.5 text-slate-500">{emp?.bank_name || '—'}</td>
+                        <td className="py-2.5 font-mono text-slate-500">{maskAccountNumber(emp?.account_number)}</td>
+                        <td className="py-2.5 text-right font-semibold text-slate-800">{formatCurrency(r.net_pay)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3} className="pt-3 font-semibold text-slate-700">Total</td>
+                    <td className="pt-3 text-right font-bold text-slate-800">
+                      {formatCurrency(eligibleRecords.reduce((s, r) => s + (r.net_pay || 0), 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          {step === STEP_PROCESSING && (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-500 mb-4">Processing transfers — do not close this window.</p>
+              {progress.map((p) => (
+                <div key={p.employeeId} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-100">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <StatusIcon status={p.status} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{p.name}</p>
+                      <p className="text-xs text-slate-400 font-mono">{maskAccountNumber(p.accountNumber)}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-slate-800">{formatCurrency(p.amount)}</p>
+                    {p.error && <p className="text-xs text-danger-600 truncate max-w-[160px]">{p.error}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {step === STEP_DONE && (
+            <div className="space-y-4">
+              <div className={cn(
+                'p-5 rounded-xl text-center',
+                summary.failed === 0 ? 'bg-success-50 border border-success-100' : 'bg-warning-50 border border-warning-100'
+              )}>
+                <p className="text-2xl font-bold text-slate-800 mb-1">
+                  {summary.success}/{summary.total} Transfers Sent
+                </p>
+                {summary.failed > 0 && (
+                  <p className="text-sm text-warning-700">{summary.failed} transfer(s) failed — see details below</p>
+                )}
+              </div>
+              {progress.map((p) => (
+                <div key={p.employeeId} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-100">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <StatusIcon status={p.status} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{p.name}</p>
+                      {p.error && <p className="text-xs text-danger-600">{p.error}</p>}
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800 shrink-0">{formatCurrency(p.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-between items-center gap-3">
+          {step === STEP_IDLE && (
+            <>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button variant="accent" onClick={handleDisburse}>
+                <SendHorizonal size={16} /> Confirm & Send {eligibleRecords.length} Transfers
+              </Button>
+            </>
+          )}
+          {step === STEP_PROCESSING && (
+            <div className="flex items-center gap-2 text-sm text-slate-500 w-full justify-center">
+              <Loader2 size={16} className="animate-spin" /> Processing transfers…
+            </div>
+          )}
+          {step === STEP_DONE && (
+            <Button className="ml-auto" onClick={onClose}>
+              <CheckCircle2 size={16} /> Done
+            </Button>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function StatusIcon({ status }) {
+  if (status === 'success') return <CheckCircle2 size={18} className="text-success-600 shrink-0" />;
+  if (status === 'failed') return <XCircle size={18} className="text-danger-600 shrink-0" />;
+  if (status === 'processing') return <Loader2 size={18} className="animate-spin text-primary shrink-0" />;
+  return <div className="w-4.5 h-4.5 rounded-full border-2 border-slate-200 shrink-0" />;
 }

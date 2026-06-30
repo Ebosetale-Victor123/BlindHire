@@ -38,6 +38,28 @@ ALTER TABLE employees ADD COLUMN IF NOT EXISTS gender TEXT;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS personal_email TEXT;
 
 -- ------------------------------------------------------------
+-- Transactions table (Paystack disbursement records)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS transactions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
+  payroll_id UUID REFERENCES payroll(id) ON DELETE CASCADE,
+  reference TEXT UNIQUE NOT NULL,
+  amount BIGINT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  recipient_code TEXT,
+  transfer_code TEXT,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_transactions_employee_id ON transactions(employee_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_reference ON transactions(reference);
+
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all for anon - transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
+
+-- ------------------------------------------------------------
 -- Jobs table
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS jobs (
@@ -136,8 +158,14 @@ CREATE TABLE IF NOT EXISTS payroll (
   pension NUMERIC DEFAULT 0,
   net_pay NUMERIC,
   status TEXT DEFAULT 'pending',
+  paid_at TIMESTAMPTZ,
+  transaction_id UUID REFERENCES transactions(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add columns for existing payroll tables
+ALTER TABLE payroll ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+ALTER TABLE payroll ADD COLUMN IF NOT EXISTS transaction_id UUID;
 
 -- ------------------------------------------------------------
 -- Indexes for common lookups

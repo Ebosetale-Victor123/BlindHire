@@ -66,6 +66,47 @@ export default defineConfig(({ mode }) => {
           agent: extraCaAgent,
           rewrite: (path) => path.replace(/^\/api\/emailjs/, ''),
         },
+        // Paystack API proxy — dev-only, mirrors the 4 api/paystack-*.js Vercel
+        // functions. Uses the secret key directly in dev (never a VITE_ prefix).
+        '/api/paystack-verify-account': {
+          target: 'https://api.paystack.co',
+          changeOrigin: true,
+          agent: extraCaAgent,
+          rewrite: () => '/bank/resolve',
+          headers: {
+            Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
+          },
+        },
+        '/api/paystack-create-recipient': {
+          target: 'https://api.paystack.co',
+          changeOrigin: true,
+          agent: extraCaAgent,
+          rewrite: () => '/transferrecipient',
+          headers: {
+            Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
+          },
+        },
+        '/api/paystack-transfer': {
+          target: 'https://api.paystack.co',
+          changeOrigin: true,
+          agent: extraCaAgent,
+          rewrite: () => '/transfer',
+          headers: {
+            Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
+          },
+        },
+        '/api/paystack-verify-transfer': {
+          target: 'https://api.paystack.co',
+          changeOrigin: true,
+          agent: extraCaAgent,
+          rewrite: (path) => {
+            const ref = new URLSearchParams(path.split('?')[1] || '').get('reference') || '';
+            return `/transfer/${ref}`;
+          },
+          headers: {
+            Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
+          },
+        },
       },
     },
   }

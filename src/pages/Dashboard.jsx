@@ -7,7 +7,7 @@ import {
 import {
   Users, Briefcase, UserCheck, Wallet, UserPlus, FilePlus2, PlayCircle,
   ClipboardCheck, CalendarCheck, DollarSign, ArrowUpRight, CheckCircle2, XCircle,
-  GraduationCap,
+  GraduationCap, SendHorizonal,
 } from 'lucide-react';
 import Card, { CardHeader } from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
@@ -31,7 +31,7 @@ const PIE_COLORS = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { jobs, payroll, applications, recentActivity, skillBridgeStats, loading } = useApp();
+  const { jobs, payroll, transactions, applications, recentActivity, skillBridgeStats, loading } = useApp();
   const { stats } = useEmployees();
   const { todayStats, trend } = useAttendance();
 
@@ -44,6 +44,19 @@ export default function Dashboard() {
     const pending = payroll.filter((p) => p.status === 'pending');
     return pending.reduce((sum, p) => sum + (Number(p.net_pay) || 0), 0);
   }, [payroll]);
+
+  const disbursedThisMonth = useMemo(() => {
+    const now = new Date();
+    const month = now.getMonth();
+    const year = now.getFullYear();
+    return transactions
+      .filter((t) => {
+        if (t.status !== 'success') return false;
+        const d = new Date(t.created_at);
+        return d.getMonth() === month && d.getFullYear() === year;
+      })
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0) / 100; // convert kobo to naira
+  }, [transactions]);
 
   const departmentData = useMemo(
     () => Object.entries(stats.byDepartment).map(([department, count]) => ({ department, count })),
@@ -93,15 +106,16 @@ export default function Dashboard() {
       />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7 gap-4">
         {loading ? (
-          Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+          Array.from({ length: 7 }).map((_, i) => <SkeletonCard key={i} />)
         ) : (
           <>
             <StatCard icon={Users} label="Total Employees" value={stats.total} color="primary" />
             <StatCard icon={Briefcase} label="Open Positions" value={openPositions} color="accent" />
             <StatCard icon={UserCheck} label="Present Today" value={`${todayStats.present + todayStats.late}/${todayStats.total}`} color="success" />
             <StatCard icon={Wallet} label="Pending Payroll" value={formatCurrency(pendingPayroll)} color="warning" />
+            <StatCard icon={SendHorizonal} label="Disbursed This Month" value={formatCurrency(disbursedThisMonth)} color="success" />
             <StatCard icon={CheckCircle2} label="Hired Candidates" value={hiredCandidates} color="success" />
             <StatCard icon={XCircle} label="Rejected Candidates" value={rejectedCandidates} color="danger" />
           </>

@@ -1,13 +1,15 @@
 import { useSearchParams } from 'react-router-dom';
-import { LayoutDashboard, Receipt } from 'lucide-react';
+import { LayoutDashboard, Receipt, ArrowLeftRight } from 'lucide-react';
 import PageHeader from '../../components/shared/PageHeader';
 import { cn } from '../../lib/utils';
 import PayrollDashboard from './PayrollDashboard';
 import PayslipGenerator from './PayslipGenerator';
+import TransactionLog from './TransactionLog';
 
 const TABS = [
   { key: 'dashboard', label: 'Payroll Dashboard', icon: LayoutDashboard },
   { key: 'payslip', label: 'Payslip Generator', icon: Receipt },
+  { key: 'transactions', label: 'Transaction Log', icon: ArrowLeftRight },
 ];
 
 export default function PayrollPage() {
@@ -62,6 +64,7 @@ export default function PayrollPage() {
 
       {tab === 'dashboard' && <PayrollDashboard autoRun={action === 'run'} onAutoRunHandled={clearAction} onViewPayslip={handleViewPayslip} />}
       {tab === 'payslip' && <PayslipGenerator initialEmployeeId={employeeId} />}
+      {tab === 'transactions' && <TransactionLog />}
     </div>
   );
 }

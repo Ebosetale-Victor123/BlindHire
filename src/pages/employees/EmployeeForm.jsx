@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Input, Select } from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import BankAccountFields from '../../components/shared/BankAccountFields';
 import { DEPARTMENTS, EMPLOYMENT_TYPES, EMPLOYEE_STATUSES, NIGERIAN_BANKS } from '../../data/sampleData';
 
 const EMPTY_FORM = {
@@ -94,12 +95,14 @@ export default function EmployeeForm({ initialValues, onSubmit, onCancel, submit
       </div>
       <Input label="Hire Date" type="date" value={form.hire_date} onChange={handleChange('hire_date')} error={errors.hire_date} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Select label="Bank Name" value={form.bank_name} onChange={handleChange('bank_name')}>
-          {NIGERIAN_BANKS.map((b) => <option key={b} value={b}>{b}</option>)}
-        </Select>
-        <Input label="Account Number" value={form.account_number} onChange={handleChange('account_number')} placeholder="0123456789" maxLength={10} />
-      </div>
+      <BankAccountFields
+        bankName={form.bank_name}
+        accountNumber={form.account_number}
+        onBankChange={(val) => setForm((f) => ({ ...f, bank_name: val }))}
+        onAccountChange={(val) => setForm((f) => ({ ...f, account_number: val }))}
+        bankError={errors.bank_name}
+        accountError={errors.account_number}
+      />
       <Input label="Next of Kin" value={form.next_of_kin} onChange={handleChange('next_of_kin')} placeholder="Name (Relationship)" />
 
       <div className="flex justify-end gap-3 pt-2">

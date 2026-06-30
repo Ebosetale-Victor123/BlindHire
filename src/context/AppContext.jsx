@@ -64,6 +64,7 @@ export function AppProvider({ children }) {
   const [attendance, setAttendance] = useState(() => cached?.attendance ?? generateAttendanceRecords());
   const [leaveRequests, setLeaveRequests] = useState(() => cached?.leaveRequests ?? sampleLeaveRequests);
   const [payroll, setPayroll] = useState(() => cached?.payroll ?? generatePayrollRecords());
+  const [transactions, setTransactions] = useState(() => cached?.transactions ?? []);
   const [loading, setLoading] = useState(() => !cached);
   const [skillBridgeStats, setSkillBridgeStats] = useState({
     learningPathsSent: 0,
@@ -95,7 +96,7 @@ export function AppProvider({ children }) {
         await seedTableIfEmpty('leave_requests', sampleLeaveRequests);
         await seedTableIfEmpty('payroll', generatePayrollRecords());
 
-        const [emp, jb, ap, ob, at, lv, pr] = await Promise.all([
+        const [emp, jb, ap, ob, at, lv, pr, tx] = await Promise.all([
           fetchAll('employees'),
           fetchAll('jobs'),
           fetchAll('applications'),
@@ -103,6 +104,7 @@ export function AppProvider({ children }) {
           fetchAll('attendance', 'created_at', 'id, employee_id, date, clock_in, clock_out, status, hours_worked'),
           fetchAll('leave_requests'),
           fetchAll('payroll'),
+          fetchAll('transactions'),
         ]);
 
         if (cancelled) return;
@@ -115,6 +117,7 @@ export function AppProvider({ children }) {
         if (at?.length) { setAttendance(at); fresh.attendance = at; }
         if (lv?.length) { setLeaveRequests(lv); fresh.leaveRequests = lv; }
         if (pr?.length) { setPayroll(pr); fresh.payroll = pr; }
+        if (tx?.length) { setTransactions(tx); fresh.transactions = tx; }
 
         if (Object.keys(fresh).length) {
           setCachedData({ ...cached, ...fresh });
@@ -348,6 +351,38 @@ export function AppProvider({ children }) {
   }, []);
 
   // ----------------------------------------------------------
+  // Transactions (Paystack disbursement records)
+  // ----------------------------------------------------------
+  const addTransaction = useCallback(async (tx) => {
+    const localRecord = { ...tx, id: tx.id || crypto.randomUUID(), created_at: new Date().toISOString() };
+    setTransactions((prev) => [...prev, localRecord]);
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.from('transactions').insert(tx).select().single();
+        if (error) throw error;
+        setTransactions((prev) => prev.map((t) => (t.id === localRecord.id ? data : t)));
+        return data;
+      } catch (err) {
+        console.error('Failed to add transaction to Supabase:', err.message);
+        return localRecord;
+      }
+    }
+    return localRecord;
+  }, []);
+
+  const updateTransaction = useCallback(async (id, updates) => {
+    setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('transactions').update(updates).eq('id', id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Failed to update transaction in Supabase:', err.message);
+      }
+    }
+  }, []);
+
+  // ----------------------------------------------------------
   // SkillBridge (local-only session stats)
   // ----------------------------------------------------------
   const logLearningPathSent = useCallback(() => {
@@ -373,6 +408,7 @@ export function AppProvider({ children }) {
       attendance,
       leaveRequests,
       payroll,
+      transactions,
       recentActivity,
       skillBridgeStats,
       addEmployee,
@@ -388,16 +424,18 @@ export function AppProvider({ children }) {
       addLeaveRequest,
       updateLeaveRequest,
       setPayrollRecords,
+      addTransaction,
+      updateTransaction,
       logLearningPathSent,
       logGrowthPlanGenerated,
       logSkillGaps,
     }),
     [
       loading, employees, jobs, applications, onboarding, attendance, leaveRequests, payroll,
-      skillBridgeStats,
+      transactions, skillBridgeStats,
       addEmployee, updateEmployee, deleteEmployee, addJob, updateJob, addApplication, updateApplication,
       addOnboardingTasks, toggleOnboardingTask, addAttendanceRecord, addLeaveRequest,
-      updateLeaveRequest, setPayrollRecords,
+      updateLeaveRequest, setPayrollRecords, addTransaction, updateTransaction,
       logLearningPathSent, logGrowthPlanGenerated, logSkillGaps,
     ]
   );
