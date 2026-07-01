@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
   EyeOff, Eye, X, GraduationCap, Sparkles, ChevronDown, MoreHorizontal,
-  FileText, Mail, CheckCircle2, XCircle,
+  FileText, Mail, CheckCircle2, XCircle, SlidersHorizontal,
 } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
@@ -71,6 +71,8 @@ export default function ApplicationTracker({ jobFilter, onClearFilter, blindMode
   const { applications, jobs, updateApplication } = useApp();
   const [viewingCv, setViewingCv] = useState(null);
   const [emailingApplication, setEmailingApplication] = useState(null);
+  const [threshold, setThreshold] = useState(60);
+  const [hideBelow, setHideBelow] = useState(false);
   const { toast, showToast, hideToast } = useToast();
 
   const anonMap = useMemo(() => {
@@ -89,14 +91,31 @@ export default function ApplicationTracker({ jobFilter, onClearFilter, blindMode
 
   const filteredJob = jobs.find((j) => j.id === jobFilter);
 
+  // Threshold stats — only count scored candidates
+  const scoredCount = useMemo(
+    () => filteredApplications.filter((a) => a.blind_score != null).length,
+    [filteredApplications]
+  );
+  const meetCount = useMemo(
+    () => filteredApplications.filter((a) => a.blind_score != null && a.blind_score >= threshold).length,
+    [filteredApplications, threshold]
+  );
+  const hiddenCount = scoredCount - meetCount;
+
+  // When hideBelow is on, unscored candidates are still shown (not yet assessed)
+  const visibleApplications = useMemo(() => {
+    if (!hideBelow) return filteredApplications;
+    return filteredApplications.filter((a) => a.blind_score == null || a.blind_score >= threshold);
+  }, [filteredApplications, hideBelow, threshold]);
+
   const columns = useMemo(() => {
     const grouped = {};
     APPLICATION_STAGES.forEach((s) => (grouped[s] = []));
-    filteredApplications.forEach((a) => {
+    visibleApplications.forEach((a) => {
       (grouped[a.stage] || grouped.applied).push(a);
     });
     return grouped;
-  }, [filteredApplications]);
+  }, [visibleApplications]);
 
   const handleDragEnd = (result) => {
     const { source, destination, draggableId } = result;
@@ -124,7 +143,7 @@ export default function ApplicationTracker({ jobFilter, onClearFilter, blindMode
               </button>
             </Badge>
           )}
-          <p className="text-sm text-slate-500">{filteredApplications.length} candidates</p>
+          <p className="text-sm text-slate-500">{visibleApplications.length} candidates</p>
         </div>
 
         <button
@@ -139,6 +158,49 @@ export default function ApplicationTracker({ jobFilter, onClearFilter, blindMode
           {blindMode ? <EyeOff size={16} /> : <Eye size={16} />}
           Blind Mode: {blindMode ? 'ON' : 'OFF'}
         </button>
+      </div>
+
+      {/* Threshold filter bar */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl">
+        <div className="flex items-center gap-3 flex-1 min-w-[220px]">
+          <SlidersHorizontal size={15} className="text-slate-400 shrink-0" />
+          <span className="text-xs font-medium text-slate-600 whitespace-nowrap">Min Fit Score</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={threshold}
+            onChange={(e) => setThreshold(Number(e.target.value))}
+            className="flex-1 h-1.5 rounded-full cursor-pointer accent-primary"
+          />
+          <span className="text-xs font-bold text-slate-800 w-7 shrink-0 text-right">{threshold}</span>
+        </div>
+
+        <button
+          onClick={() => setHideBelow((v) => !v)}
+          className={cn(
+            'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap',
+            hideBelow
+              ? 'bg-primary text-white border-primary shadow-sm'
+              : 'bg-white text-slate-600 border-slate-200 hover:border-primary/40'
+          )}
+        >
+          {hideBelow ? <EyeOff size={13} /> : <Eye size={13} />}
+          Hide below threshold
+        </button>
+
+        {scoredCount > 0 && (
+          <p className="text-xs text-slate-500 whitespace-nowrap">
+            <span className="font-semibold text-slate-700">{meetCount}</span>
+            {' of '}
+            <span className="font-semibold text-slate-700">{scoredCount}</span>
+            {' scored candidates meet minimum requirements'}
+            {hiddenCount > 0 && (
+              <> — <span className="font-semibold text-warning-600">{hiddenCount} auto-filtered</span></>
+            )}
+          </p>
+        )}
       </div>
 
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -181,6 +243,7 @@ export default function ApplicationTracker({ jobFilter, onClearFilter, blindMode
                               job={jobs.find((j) => j.id === application.job_id)}
                               blindMode={blindMode}
                               anonId={anonMap[application.id]}
+                              threshold={threshold}
                               onMoveStage={(newStage) => handleMoveStage(application.id, newStage)}
                               onViewCv={() => setViewingCv(application)}
                               onSendEmail={() => setEmailingApplication(application)}
@@ -378,8 +441,9 @@ function SendEmailModal({ application, job, onClose, showToast }) {
   );
 }
 
-function CandidateCard({ application, job, blindMode, anonId, onMoveStage, onViewCv, onSendEmail }) {
+function CandidateCard({ application, job, blindMode, anonId, threshold, onMoveStage, onViewCv, onSendEmail }) {
   const displayName = blindMode ? `Candidate #${anonId}` : application.candidate_name;
+  const belowThreshold = application.blind_score != null && application.blind_score < threshold;
 
   return (
     <div className="space-y-2">
@@ -411,11 +475,16 @@ function CandidateCard({ application, job, blindMode, anonId, onMoveStage, onVie
 
       <div className="flex items-center justify-between pt-1">
         <span className="text-xs text-slate-400">{formatDate(application.created_at, 'MMM d')}</span>
-        {application.blind_score != null && (
-          <Badge variant={application.blind_score >= 75 ? 'success' : application.blind_score >= 50 ? 'warning' : 'danger'} className="gap-1">
-            <Sparkles size={11} /> {application.blind_score}
-          </Badge>
-        )}
+        <div className="flex items-center gap-1.5">
+          {belowThreshold && (
+            <Badge variant="default" className="text-[10px] px-1.5 py-px">Below Threshold</Badge>
+          )}
+          {application.blind_score != null && (
+            <Badge variant={application.blind_score >= 75 ? 'success' : application.blind_score >= 50 ? 'warning' : 'danger'} className="gap-1">
+              <Sparkles size={11} /> {application.blind_score}
+            </Badge>
+          )}
+        </div>
       </div>
 
       <div
