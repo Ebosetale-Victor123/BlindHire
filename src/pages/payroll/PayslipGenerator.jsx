@@ -70,7 +70,7 @@ export default function PayslipGenerator({ initialEmployeeId }) {
             <p className="text-slate-400">No payroll record found for this employee.</p>
           </div>
         ) : (
-          <div id="payslip-print" className="max-w-2xl mx-auto border border-slate-100 rounded-xl p-8">
+          <div id="payslip-print" className="max-w-2xl mx-auto border border-slate-100 rounded-xl p-5 sm:p-8">
             <div className="flex items-start justify-between border-b border-slate-100 pb-5 mb-6">
               <div>
                 <h2 className="text-lg font-bold text-slate-800">

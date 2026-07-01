@@ -11,18 +11,18 @@ const COLORS = {
 
 export default function StatCard({ icon: Icon, label, value, change, color = 'primary', className }) {
   return (
-    <Card className={cn('flex items-center gap-4', className)}>
-      <div className={cn('p-3 rounded-xl shrink-0', COLORS[color] || COLORS.primary)}>
-        {Icon && <Icon size={22} />}
+    <Card className={cn('flex items-center gap-3 sm:gap-4', className)}>
+      <div className={cn('p-2.5 sm:p-3 rounded-xl shrink-0', COLORS[color] || COLORS.primary)}>
+        {Icon && <Icon size={20} />}
       </div>
-      <div className="min-w-0">
-        <p className="text-sm text-slate-500 leading-snug">{label}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs sm:text-sm text-slate-500 leading-snug truncate">{label}</p>
         <div className="flex items-baseline gap-2 flex-wrap">
-          <p className="text-2xl font-bold text-slate-800">{value}</p>
+          <p className="text-lg sm:text-2xl font-bold text-slate-800 min-w-0 break-words">{value}</p>
           {change && (
             <span
               className={cn(
-                'text-xs font-medium',
+                'text-xs font-medium shrink-0',
                 change.startsWith('-') ? 'text-danger-600' : 'text-success-600'
               )}
             >

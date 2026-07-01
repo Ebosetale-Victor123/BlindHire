@@ -100,7 +100,7 @@ export default function PayrollDashboard({ autoRun, onAutoRunHandled, onViewPays
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard icon={Wallet} label="Gross Pay" value={formatCurrency(summary.gross)} color="primary" />
         <StatCard icon={TrendingDown} label="Deductions" value={formatCurrency(summary.deductions)} color="warning" />
         <StatCard icon={Receipt} label="Net Pay" value={formatCurrency(summary.net)} color="success" />
@@ -371,7 +371,8 @@ function DisburseModal({ records, employeeMap, period, transactions, addTransact
         <div className="overflow-y-auto flex-1 px-6 py-4">
           {step === STEP_IDLE && (
             <div className="space-y-4">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
                 <thead>
                   <tr className="border-b border-slate-100 text-left">
                     <th className="pb-2 font-medium text-slate-500">Employee</th>
@@ -410,6 +411,7 @@ function DisburseModal({ records, employeeMap, period, transactions, addTransact
                   </tr>
                 </tfoot>
               </table>
+              </div>
             </div>
           )}
 

@@ -57,7 +57,7 @@ export default function AttendanceLog() {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={UserCheck} label="Present Today" value={todayStats.present} color="success" />
         <StatCard icon={Clock} label="Late Today" value={todayStats.late} color="warning" />
         <StatCard icon={UserX} label="Absent Today" value={todayStats.absent} color="danger" />
