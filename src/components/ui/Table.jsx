@@ -2,7 +2,7 @@ import { cn } from '../../lib/utils';
 
 export default function Table({ columns, data, emptyMessage = 'No records found', rowKey = 'id', onRowClick }) {
   return (
-    <div className="overflow-x-auto -mx-5 px-5 scrollbar-thin">
+    <div className="overflow-x-auto scrollbar-thin">
       <table className="w-full text-sm min-w-[640px]">
         <thead>
           <tr className="border-b border-slate-100">

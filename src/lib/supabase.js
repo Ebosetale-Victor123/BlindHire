@@ -52,7 +52,9 @@ export async function seedTableIfEmpty(table, rows) {
     if (insertError) throw insertError;
     return true;
   } catch (err) {
-    console.error(`Failed to seed table "${table}":`, err.message);
+    if (!err.message?.includes('Could not find the table')) {
+      console.error(`Failed to seed table "${table}":`, err.message);
+    }
     return false;
   }
 }
@@ -72,7 +74,9 @@ export async function fetchAll(table, orderBy = 'created_at', columns = '*') {
     if (error) throw error;
     return data;
   } catch (err) {
-    console.error(`Failed to fetch table "${table}":`, err.message);
+    if (!err.message?.includes('Could not find the table')) {
+      console.error(`Failed to fetch table "${table}":`, err.message);
+    }
     return null;
   }
 }

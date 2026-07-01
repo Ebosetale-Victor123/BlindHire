@@ -197,12 +197,39 @@ export default function EmployeeList() {
             {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
           </div>
         ) : (
-          <Table
-            columns={columns}
-            data={filtered}
-            onRowClick={(e) => navigate(`/employees/${e.id}`)}
-            emptyMessage="No employees match your filters"
-          />
+          <>
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-slate-50">
+              {filtered.length === 0 ? (
+                <p className="text-center text-slate-400 text-sm py-10">No employees match your filters</p>
+              ) : filtered.map((e) => (
+                <div
+                  key={e.id}
+                  onClick={() => navigate(`/employees/${e.id}`)}
+                  className="flex items-center gap-3 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors"
+                >
+                  <span className={cn('w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold shrink-0', avatarColor(e.first_name + e.last_name))}>
+                    {getInitials(e.first_name, e.last_name)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-slate-800 truncate">{e.first_name} {e.last_name}</p>
+                    <p className="text-xs text-slate-500 truncate">{e.role} · {e.department}</p>
+                    <p className="text-xs text-slate-400 font-mono mt-0.5">{e.employee_id}</p>
+                  </div>
+                  <Badge variant={STATUS_VARIANTS[e.status] || 'default'} dot className="shrink-0">{titleCase(e.status)}</Badge>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block">
+              <Table
+                columns={columns}
+                data={filtered}
+                onRowClick={(e) => navigate(`/employees/${e.id}`)}
+                emptyMessage="No employees match your filters"
+              />
+            </div>
+          </>
         )}
       </Card>
 
