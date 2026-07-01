@@ -16,6 +16,8 @@ import {
   generatePerformanceRecords,
   generateTasks,
   generateDepartments,
+  generateSampleFeedback,
+  generateSampleQueries,
   recentActivity,
 } from '../data/sampleData';
 
@@ -73,6 +75,8 @@ export function AppProvider({ children }) {
   const [departments, setDepartments] = useState(() =>
     cached?.departments ?? generateDepartments().map((d) => ({ ...d, id: crypto.randomUUID() }))
   );
+  const [feedback, setFeedback] = useState(() => cached?.feedback ?? generateSampleFeedback());
+  const [queries, setQueries] = useState(() => cached?.queries ?? generateSampleQueries());
   const [loading, setLoading] = useState(() => !cached);
   const [skillBridgeStats, setSkillBridgeStats] = useState({
     learningPathsSent: 0,
@@ -112,8 +116,10 @@ export function AppProvider({ children }) {
         await seedTableIfEmpty('performance_records', generatePerformanceRecords(actualEmps?.map((e) => e.id)));
         await seedTableIfEmpty('tasks', generateTasks());
         await seedTableIfEmpty('departments', generateDepartments());
+        await seedTableIfEmpty('feedback', generateSampleFeedback());
+        await seedTableIfEmpty('queries', generateSampleQueries(actualEmps?.map((e) => e.id)));
 
-        const [emp, jb, ap, ob, at, lv, pr, tx, perf, tsk, depts] = await Promise.all([
+        const [emp, jb, ap, ob, at, lv, pr, tx, perf, tsk, depts, fb, qrs] = await Promise.all([
           fetchAll('employees'),
           fetchAll('jobs'),
           fetchAll('applications'),
@@ -125,6 +131,8 @@ export function AppProvider({ children }) {
           fetchAll('performance_records'),
           fetchAll('tasks'),
           fetchAll('departments'),
+          fetchAll('feedback'),
+          fetchAll('queries'),
         ]);
 
         if (cancelled) return;
@@ -141,6 +149,8 @@ export function AppProvider({ children }) {
         if (perf?.length)  { setPerformanceRecords(perf);   fresh.performanceRecords = perf; }
         if (tsk?.length)   { setTasks(tsk);                 fresh.tasks = tsk; }
         if (depts?.length) { setDepartments(depts);         fresh.departments = depts; }
+        if (fb?.length)    { setFeedback(fb);               fresh.feedback = fb; }
+        if (qrs?.length)   { setQueries(qrs);               fresh.queries = qrs; }
 
         if (Object.keys(fresh).length) {
           setCachedData({ ...cached, ...fresh });
@@ -502,6 +512,65 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  const refreshTasks = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const data = await fetchAll('tasks');
+      if (data?.length) setTasks(data);
+    } catch (err) {
+      console.error('Failed to refresh tasks:', err.message);
+    }
+  }, []);
+
+  // ----------------------------------------------------------
+  // Feedback (anonymous — no employee_id)
+  // ----------------------------------------------------------
+  const addFeedback = useCallback(async (entry) => {
+    const localRecord = { ...entry, id: crypto.randomUUID(), created_at: new Date().toISOString() };
+    setFeedback((prev) => [localRecord, ...prev]);
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.from('feedback').insert(entry).select().single();
+        if (error) throw error;
+        setFeedback((prev) => prev.map((f) => (f.id === localRecord.id ? data : f)));
+      } catch (err) {
+        console.error('Failed to add feedback to Supabase:', err.message);
+      }
+    }
+    return localRecord;
+  }, []);
+
+  // ----------------------------------------------------------
+  // Queries / Claims (Voice Centre)
+  // ----------------------------------------------------------
+  const addQuery = useCallback(async (queryData) => {
+    const localRecord = { ...queryData, id: crypto.randomUUID(), created_at: new Date().toISOString() };
+    setQueries((prev) => [localRecord, ...prev]);
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.from('queries').insert(queryData).select().single();
+        if (error) throw error;
+        setQueries((prev) => prev.map((q) => (q.id === localRecord.id ? data : q)));
+        return data;
+      } catch (err) {
+        console.error('Failed to add query to Supabase:', err.message);
+      }
+    }
+    return localRecord;
+  }, []);
+
+  const updateQuery = useCallback(async (id, updates) => {
+    setQueries((prev) => prev.map((q) => (q.id === id ? { ...q, ...updates } : q)));
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('queries').update(updates).eq('id', id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Failed to update query in Supabase:', err.message);
+      }
+    }
+  }, []);
+
   // Keep transactions in localStorage cache so they survive page reloads even when
   // the Supabase insert silently fails (e.g. schema mismatch on payroll_id).
   useEffect(() => {
@@ -559,6 +628,8 @@ export function AppProvider({ children }) {
       performanceRecords,
       tasks,
       departments,
+      feedback,
+      queries,
       recentActivity,
       skillBridgeStats,
       addEmployee,
@@ -580,6 +651,10 @@ export function AppProvider({ children }) {
       addPerformanceRecord,
       addTask,
       updateTask,
+      refreshTasks,
+      addFeedback,
+      addQuery,
+      updateQuery,
       addDepartment,
       updateDepartment,
       deleteDepartment,
@@ -589,11 +664,12 @@ export function AppProvider({ children }) {
     }),
     [
       loading, employees, jobs, applications, onboarding, attendance, leaveRequests, payroll,
-      transactions, performanceRecords, tasks, departments, skillBridgeStats,
+      transactions, performanceRecords, tasks, departments, feedback, queries, skillBridgeStats,
       addEmployee, updateEmployee, deleteEmployee, addJob, updateJob, addApplication, updateApplication,
       addOnboardingTasks, toggleOnboardingTask, addAttendanceRecord, addLeaveRequest,
       updateLeaveRequest, setPayrollRecords, addTransaction, updateTransaction, refreshTransactions,
-      addPerformanceRecord, addTask, updateTask,
+      addPerformanceRecord, addTask, updateTask, refreshTasks,
+      addFeedback, addQuery, updateQuery,
       addDepartment, updateDepartment, deleteDepartment,
       logLearningPathSent, logGrowthPlanGenerated, logSkillGaps,
     ]

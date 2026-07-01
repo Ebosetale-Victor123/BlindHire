@@ -975,6 +975,112 @@ export function generateTasks() {
 }
 
 // ============================================================
+// 11. ANONYMOUS FEEDBACK
+// ============================================================
+const feedbk = (n) => `b0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+export function generateSampleFeedback() {
+  return [
+    {
+      id: feedbk(1),
+      category: 'Work Environment',
+      rating: 4,
+      message: 'The office environment is comfortable and collaborative. Would love to see more quiet spaces for focused deep work.',
+      created_at: isoDaysAgo(15),
+    },
+    {
+      id: feedbk(2),
+      category: 'Pay & Benefits',
+      rating: 3,
+      message: 'Salaries are competitive but the benefits package could be improved, especially health insurance coverage for dependants.',
+      created_at: isoDaysAgo(7),
+    },
+    {
+      id: feedbk(3),
+      category: 'Career Growth',
+      rating: 5,
+      message: 'Excellent learning opportunities and clear paths for advancement. Leadership is highly supportive of skill development.',
+      created_at: isoDaysAgo(2),
+    },
+  ];
+}
+
+// ============================================================
+// 12. QUERIES & CLAIMS (Voice Centre)
+// actualEmpIds: ordered list of real Supabase employee IDs
+// ============================================================
+const qry = (n) => `c0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+export function generateSampleQueries(actualEmpIds = null) {
+  const ids = actualEmpIds?.length >= 9 ? actualEmpIds : [
+    E.ADEYEMI, E.CHINONSO, E.NGOZI, E.AISHA, E.FOLAKE,
+    E.TUNDE, E.CHIAMAKA, E.IBRAHIM, E.FUNMILAYO,
+  ];
+  return [
+    {
+      id: qry(1),
+      employee_id: ids[0],
+      ticket_number: 'BH-Q-1001',
+      type: 'query',
+      category: 'Payslip Issue',
+      subject: 'Incorrect basic salary for June 2026',
+      message: 'My June payslip shows a lower basic salary than my offer letter. Please review and correct.',
+      amount: null,
+      receipt_note: null,
+      status: 'open',
+      hr_response: null,
+      resolved_at: null,
+      created_at: isoDaysAgo(5),
+    },
+    {
+      id: qry(2),
+      employee_id: ids[7],
+      ticket_number: 'BH-C-1002',
+      type: 'claim',
+      category: 'Transport',
+      subject: 'Transport reimbursement — Client visit Lagos Island, June 15',
+      message: 'Requesting reimbursement for transportation to client site on June 15, 2026. Uber receipt available.',
+      amount: 15000,
+      receipt_note: 'Uber receipt — physical copy submitted to Admin',
+      status: 'in_review',
+      hr_response: null,
+      resolved_at: null,
+      created_at: isoDaysAgo(8),
+    },
+    {
+      id: qry(3),
+      employee_id: ids[2],
+      ticket_number: 'BH-Q-1003',
+      type: 'query',
+      category: 'Attendance Dispute',
+      subject: 'June 20 marked absent — I was present',
+      message: 'The system shows me as absent on June 20 but I was physically present. I have my access card log as proof.',
+      amount: null,
+      receipt_note: null,
+      status: 'resolved',
+      hr_response: 'We reviewed the access card log and have corrected your attendance for June 20 to Present. Apologies for the inconvenience.',
+      resolved_at: isoDaysAgo(2),
+      created_at: isoDaysAgo(10),
+    },
+    {
+      id: qry(4),
+      employee_id: ids[4],
+      ticket_number: 'BH-C-1004',
+      type: 'claim',
+      category: 'Equipment',
+      subject: 'Laptop charger replacement request',
+      message: 'My company-issued laptop charger has stopped working. Requesting approval for a replacement purchase.',
+      amount: 45000,
+      receipt_note: null,
+      status: 'open',
+      hr_response: null,
+      resolved_at: null,
+      created_at: isoDaysAgo(3),
+    },
+  ];
+}
+
+// ============================================================
 // 8. RECENT ACTIVITY FEED (Dashboard)
 // ============================================================
 export const recentActivity = [

@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { format, subDays } from 'date-fns';
+import { useApp } from '../../context/AppContext';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -32,7 +33,12 @@ export default function PerformanceTab({
   onAddRecord, onAddTask, onUpdateTask,
 }) {
   const now = new Date();
+  const { refreshTasks } = useApp();
   const [showAddNote, setShowAddNote] = useState(false);
+
+  useEffect(() => {
+    refreshTasks?.();
+  }, []);
   const [showAddTask, setShowAddTask] = useState(false);
   const [rating, setRating] = useState(3);
   const [notes, setNotes] = useState('');
@@ -230,11 +236,16 @@ export default function PerformanceTab({
                     <p className={cn('text-sm text-slate-700 truncate', task.status === 'completed' && 'line-through text-slate-400')}>
                       {task.title}
                     </p>
-                    {task.due_date && (
+                    {task.completed_at ? (
+                      <p className="text-xs text-success-600 flex items-center gap-1 mt-0.5">
+                        <CheckSquare size={11} />
+                        Completed on {format(new Date(task.completed_at), "MMM d, yyyy 'at' h:mm aa")}
+                      </p>
+                    ) : task.due_date ? (
                       <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                         <Calendar size={11} /> Due {formatDate(task.due_date)}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
                 <Badge variant={task.status === 'completed' ? 'success' : 'default'} className="shrink-0 capitalize">

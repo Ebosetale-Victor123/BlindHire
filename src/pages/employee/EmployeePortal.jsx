@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   startOfMonth, endOfMonth, eachDayOfInterval, format, isToday, getDay,
@@ -7,7 +7,8 @@ import {
 import {
   ShieldCheck, ArrowRight, Mail, Briefcase, Building2, CalendarDays, UserCheck,
   Clock, UserX, Printer, FileText, LogOut, CheckCircle2, User, Banknote, AlertCircle,
-  CheckSquare, Square, Calendar, ClipboardList,
+  CheckSquare, Square, Calendar, ClipboardList, Star, Send, MessageSquare,
+  TicketCheck, ChevronRight, Filter,
 } from 'lucide-react';
 import Card, { CardHeader } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -25,7 +26,7 @@ import {
 
 const SICK_LEAVE_ENTITLEMENT_DAYS = 10;
 const PORTAL_LEAVE_TYPES = ['Annual Leave', 'Sick Leave', 'Maternity/Paternity Leave', 'Emergency Leave', 'Unpaid Leave'];
-const TABS = ['My Profile', 'My Attendance', 'Leave Request', 'My Payslip', 'My Tasks'];
+const TABS = ['My Profile', 'My Attendance', 'Leave Request', 'My Payslip', 'My Tasks', '📣 Feedback', '📣 Voice Centre'];
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 const dayCount = (start, end) => differenceInDays(parseISO(end), parseISO(start)) + 1;
@@ -143,6 +144,8 @@ function EmployeeDashboard({ employee }) {
       {activeTab === 'Leave Request' && <LeaveRequestTab employee={employee} />}
       {activeTab === 'My Payslip' && <PayslipTab employee={employee} />}
       {activeTab === 'My Tasks' && <MyTasksTab employee={employee} />}
+      {activeTab === '📣 Feedback' && <FeedbackTab />}
+      {activeTab === '📣 Voice Centre' && <VoiceCentreTab employee={employee} />}
     </div>
   );
 }
@@ -600,7 +603,9 @@ function PayslipRow({ label, value, bold }) {
 // Tab 5 — My Tasks
 // ============================================================
 function MyTasksTab({ employee }) {
-  const { tasks, updateTask } = useApp();
+  const { tasks, updateTask, refreshTasks } = useApp();
+
+  useEffect(() => { refreshTasks?.(); }, []);
 
   const myTasks = useMemo(
     () => tasks
@@ -667,11 +672,16 @@ function MyTasksTab({ employee }) {
                     )}>
                       {task.title}
                     </p>
-                    {task.due_date && (
+                    {task.completed_at ? (
+                      <p className="text-xs text-success-600 flex items-center gap-1 mt-0.5">
+                        <CheckSquare size={11} />
+                        {`Completed on ${new Date(task.completed_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(task.completed_at).toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit', hour12: true })}`}
+                      </p>
+                    ) : task.due_date ? (
                       <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                         <Calendar size={11} /> Due {formatDate(task.due_date)}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
                 <Badge
@@ -683,6 +693,294 @@ function MyTasksTab({ employee }) {
               </li>
             ))}
           </ul>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ============================================================
+// Tab 6 — Anonymous Feedback
+// ============================================================
+const FEEDBACK_CATEGORIES = ['Work Environment', 'Management', 'Pay & Benefits', 'Career Growth', 'Team Culture', 'Other'];
+
+function FeedbackTab() {
+  const { addFeedback } = useApp();
+  const [category, setCategory] = useState(FEEDBACK_CATEGORIES[0]);
+  const [rating, setRating] = useState(0);
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!rating) return;
+    setSubmitting(true);
+    await addFeedback({ category, rating, message: message.trim() });
+    setSubmitted(true);
+    setCategory(FEEDBACK_CATEGORIES[0]);
+    setRating(0);
+    setMessage('');
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="max-w-lg mx-auto">
+      <Card>
+        <CardHeader
+          title="Share Your Thoughts"
+          subtitle="Your feedback is completely anonymous. Your identity is never stored."
+        />
+        {submitted && (
+          <div className="mb-4 flex items-center gap-2.5 rounded-lg bg-success-50 border border-success-100 text-success-700 text-sm px-4 py-3">
+            <CheckCircle2 size={16} className="shrink-0" />
+            Thank you. Your feedback has been submitted anonymously.
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Select
+            label="Category"
+            value={category}
+            onChange={(e) => { setCategory(e.target.value); setSubmitted(false); }}
+          >
+            {FEEDBACK_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </Select>
+
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-2">Rating</p>
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => { setRating(s); setSubmitted(false); }}
+                  className="p-1 transition-transform hover:scale-110"
+                >
+                  <Star
+                    size={28}
+                    className={cn(s <= rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200 fill-slate-200')}
+                  />
+                </button>
+              ))}
+              {rating > 0 && <span className="ml-2 text-sm text-slate-500">{rating}/5</span>}
+            </div>
+            {!rating && <p className="text-xs text-danger-600 mt-1">Please select a rating</p>}
+          </div>
+
+          <Textarea
+            label="Message (optional)"
+            rows={4}
+            value={message}
+            onChange={(e) => { setMessage(e.target.value.slice(0, 500)); setSubmitted(false); }}
+            placeholder="Share your thoughts, suggestions, or concerns..."
+            hint={`${message.length}/500 characters`}
+          />
+
+          <Button type="submit" loading={submitting} disabled={!rating} className="w-full">
+            <Send size={15} /> Submit Anonymously
+          </Button>
+        </form>
+        <p className="text-xs text-slate-400 text-center mt-4">
+          No name, email or employee ID is ever attached to this response.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+// ============================================================
+// Tab 7 — Voice Centre (Queries & Claims)
+// ============================================================
+const QUERY_CATEGORIES = ['Payslip Issue', 'Attendance Dispute', 'Leave Issue', 'Policy Question', 'Other'];
+const CLAIM_CATEGORIES = ['Transport', 'Meals', 'Equipment', 'Training', 'Medical', 'Other'];
+
+const STATUS_COLORS = {
+  open: 'default',
+  in_review: 'warning',
+  resolved: 'success',
+  rejected: 'danger',
+};
+
+function VoiceCentreTab({ employee }) {
+  const { queries, addQuery } = useApp();
+  const [mode, setMode] = useState('query'); // 'query' | 'claim'
+  const [form, setForm] = useState({ category: QUERY_CATEGORIES[0], subject: '', message: '', amount: '', receipt_note: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+
+  const myTickets = useMemo(
+    () => queries
+      .filter((q) => q.employee_id === employee.id)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+    [queries, employee.id]
+  );
+
+  const categories = mode === 'query' ? QUERY_CATEGORIES : CLAIM_CATEGORIES;
+
+  const handleModeChange = (m) => {
+    setMode(m);
+    setForm({ category: (m === 'query' ? QUERY_CATEGORIES : CLAIM_CATEGORIES)[0], subject: '', message: '', amount: '', receipt_note: '' });
+    setSuccessMsg('');
+  };
+
+  const handleChange = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.subject.trim() || !form.message.trim()) return;
+    setSubmitting(true);
+    const suffix = Date.now().toString().slice(-4);
+    const ticket_number = mode === 'query' ? `BH-Q-${suffix}` : `BH-C-${suffix}`;
+    await addQuery({
+      employee_id: employee.id,
+      ticket_number,
+      type: mode,
+      category: form.category,
+      subject: form.subject.trim(),
+      message: form.message.trim(),
+      amount: mode === 'claim' && form.amount ? Number(form.amount) : null,
+      receipt_note: mode === 'claim' ? form.receipt_note.trim() || null : null,
+      status: 'open',
+      hr_response: null,
+      resolved_at: null,
+    });
+    const label = mode === 'query' ? 'Query' : 'Claim';
+    const days = mode === 'query' ? '24 hours' : '48 hours';
+    setSuccessMsg(`✅ ${label} submitted. Ticket: ${ticket_number}. HR will respond within ${days}.`);
+    setForm({ category: categories[0], subject: '', message: '', amount: '', receipt_note: '' });
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Submit form */}
+      <Card>
+        <CardHeader title="Submit a Query or Claim" subtitle="HR will review and respond to your ticket" />
+
+        {/* Mode toggle */}
+        <div className="flex gap-2 mb-5">
+          <button
+            type="button"
+            onClick={() => handleModeChange('query')}
+            className={cn(
+              'flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors',
+              mode === 'query'
+                ? 'bg-primary text-white border-primary'
+                : 'bg-white text-slate-600 border-slate-200 hover:border-primary hover:text-primary'
+            )}
+          >
+            📋 Raise a Query
+          </button>
+          <button
+            type="button"
+            onClick={() => handleModeChange('claim')}
+            className={cn(
+              'flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors',
+              mode === 'claim'
+                ? 'bg-success text-white border-success'
+                : 'bg-white text-slate-600 border-slate-200 hover:border-success hover:text-success-700'
+            )}
+          >
+            💰 Submit a Claim
+          </button>
+        </div>
+
+        {successMsg && (
+          <div className="mb-4 flex items-center gap-2.5 rounded-lg bg-success-50 border border-success-100 text-success-700 text-sm px-4 py-3">
+            <CheckCircle2 size={16} className="shrink-0" /> {successMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Select label="Category" value={form.category} onChange={handleChange('category')}>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </Select>
+          <Input
+            label="Subject"
+            value={form.subject}
+            onChange={handleChange('subject')}
+            placeholder={mode === 'query' ? 'e.g. June payslip discrepancy' : 'e.g. Transport to client site'}
+            required
+          />
+          {mode === 'claim' && (
+            <Input
+              label="Amount (₦)"
+              type="number"
+              min="0"
+              value={form.amount}
+              onChange={handleChange('amount')}
+              placeholder="15000"
+            />
+          )}
+          <Textarea
+            label={mode === 'query' ? 'Message' : 'Description'}
+            rows={4}
+            value={form.message}
+            onChange={handleChange('message')}
+            placeholder={mode === 'query'
+              ? 'Describe your issue in detail...'
+              : 'Describe the expense and reason for the claim...'}
+            required
+          />
+          {mode === 'claim' && (
+            <Input
+              label="Receipt Note (optional)"
+              value={form.receipt_note}
+              onChange={handleChange('receipt_note')}
+              placeholder="e.g. Uber receipt — submitted to Admin"
+            />
+          )}
+          <div className="flex justify-end">
+            <Button type="submit" loading={submitting} disabled={!form.subject.trim() || !form.message.trim()}>
+              <Send size={14} /> {mode === 'query' ? 'Submit Query' : 'Submit Claim'}
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      {/* My Tickets */}
+      <Card>
+        <CardHeader
+          title="My Tickets"
+          subtitle={`${myTickets.length} ticket${myTickets.length !== 1 ? 's' : ''} submitted`}
+        />
+        {myTickets.length === 0 ? (
+          <div className="text-center py-10 text-slate-400">
+            <TicketCheck size={32} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No tickets yet. Use the form above to raise a query or claim.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myTickets.map((ticket) => (
+              <div key={ticket.id} className="rounded-xl border border-slate-100 p-4">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                      {ticket.ticket_number}
+                    </span>
+                    <Badge variant={ticket.type === 'claim' ? 'success' : 'primary'} className="capitalize">
+                      {ticket.type}
+                    </Badge>
+                    <Badge variant={STATUS_COLORS[ticket.status] || 'default'} dot className="capitalize">
+                      {ticket.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-slate-400 shrink-0">{formatDate(ticket.created_at)}</span>
+                </div>
+                <p className="text-xs text-slate-400 mb-0.5">{ticket.category}</p>
+                <p className="text-sm font-medium text-slate-700">{ticket.subject}</p>
+                {ticket.type === 'claim' && ticket.amount && (
+                  <p className="text-sm text-success-700 font-semibold mt-1">{formatCurrency(ticket.amount)}</p>
+                )}
+                {ticket.hr_response && (
+                  <div className="mt-3 bg-primary-50 border border-primary-100 rounded-lg px-3 py-2">
+                    <p className="text-xs font-semibold text-primary-700 mb-1">HR Response</p>
+                    <p className="text-sm text-slate-700">{ticket.hr_response}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </Card>
     </div>

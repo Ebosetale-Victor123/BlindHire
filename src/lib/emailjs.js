@@ -142,6 +142,37 @@ export async function sendSkillBridgeLearningPath({
 }
 
 /**
+ * Notify an employee that HR has responded to their query or claim ticket.
+ * Returns { success: boolean } — never throws.
+ */
+export async function sendQueryResponseNotification({
+  employee_name,
+  employee_email,
+  ticket_number,
+  ticket_type,
+  status,
+  hr_response,
+}) {
+  try {
+    await emailjs.send(SERVICE_ID, LEAVE_DECISION_TEMPLATE_ID, {
+      employee_name,
+      employee_email,
+      leave_type: ticket_type === 'claim' ? 'Expense Claim' : 'HR Query',
+      start_date: ticket_number,
+      end_date: format(new Date(), 'yyyy-MM-dd'),
+      decision: status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' '),
+      message: hr_response || 'Your ticket status has been updated.',
+      to_email: employee_email,
+      to_name: employee_name,
+    });
+    return { success: true };
+  } catch (err) {
+    console.error('Failed to send query response notification:', err);
+    return { success: false, error: err };
+  }
+}
+
+/**
  * Email an employee their AI-generated SkillBridge career growth plan.
  * Reuses the leave-decision template with SkillBridge-specific fields.
  * Returns { success: boolean } — never throws, so a failed email never

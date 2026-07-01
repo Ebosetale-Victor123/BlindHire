@@ -7,7 +7,7 @@ import {
 import {
   Users, Briefcase, UserCheck, Wallet, UserPlus, FilePlus2, PlayCircle,
   ClipboardCheck, CalendarCheck, DollarSign, ArrowUpRight,
-  GraduationCap, SendHorizonal, TrendingUp, TrendingDown, Minus, Target,
+  GraduationCap, SendHorizonal, TrendingUp, TrendingDown, Minus, Target, TicketCheck,
 } from 'lucide-react';
 import Card, { CardHeader } from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
@@ -31,7 +31,7 @@ const PIE_COLORS = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { jobs, payroll, transactions, applications, recentActivity, skillBridgeStats, performanceRecords, employees, leaveRequests, loading } = useApp();
+  const { jobs, payroll, transactions, applications, recentActivity, skillBridgeStats, performanceRecords, employees, leaveRequests, queries, loading } = useApp();
   const { stats } = useEmployees();
   const { todayStats, trend } = useAttendance();
 
@@ -298,6 +298,47 @@ export default function Dashboard() {
           </div>
         </Card>
       )}
+
+      {/* Voice Centre widget */}
+      {(() => {
+        const openQueries = queries.filter((q) => q.status === 'open').length;
+        const pendingClaims = queries
+          .filter((q) => q.type === 'claim' && q.status !== 'resolved' && q.status !== 'rejected' && q.amount)
+          .reduce((s, q) => s + Number(q.amount), 0);
+        return (
+          <Card>
+            <CardHeader
+              title={<span className="flex items-center gap-2"><TicketCheck size={18} className="text-primary" /> Voice Centre</span>}
+              subtitle="Employee queries and pending expense claims"
+              action={
+                <Button variant="outline" size="sm" onClick={() => navigate('/settings')}>
+                  Open Inbox <ArrowUpRight size={14} />
+                </Button>
+              }
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-xl border p-4 flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${openQueries > 0 ? 'bg-danger-50' : 'bg-slate-100'}`}>
+                  <TicketCheck size={18} className={openQueries > 0 ? 'text-danger-600' : 'text-slate-400'} />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Open Queries</p>
+                  <p className={`text-2xl font-bold ${openQueries > 0 ? 'text-danger-600' : 'text-slate-800'}`}>{openQueries}</p>
+                </div>
+              </div>
+              <div className="rounded-xl border p-4 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-warning-50 flex items-center justify-center shrink-0">
+                  <Wallet size={18} className="text-warning-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Pending Claims</p>
+                  <p className="text-2xl font-bold text-slate-800">{formatCurrency(pendingClaims)}</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* SkillBridge Activity */}
       <Card className="border-2 border-accent-200 bg-gradient-to-br from-accent-50 to-white">
