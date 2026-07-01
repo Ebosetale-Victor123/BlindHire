@@ -10,7 +10,7 @@ import { Input, Select } from '../../components/ui/Input';
 import PageHeader from '../../components/shared/PageHeader';
 import BankAccountFields from '../../components/shared/BankAccountFields';
 import { useApp } from '../../context/AppContext';
-import { DEPARTMENTS, EMPLOYMENT_TYPES, GENDERS, NIGERIAN_BANKS, ONBOARDING_TEMPLATE } from '../../data/sampleData';
+import { EMPLOYMENT_TYPES, GENDERS, NIGERIAN_BANKS, ONBOARDING_TEMPLATE } from '../../data/sampleData';
 import { cn, formatCurrency, formatDate, generateEmployeeId } from '../../lib/utils';
 
 const STEPS = ['Personal Info', 'Job Info', 'Bank & Next of Kin', 'Review & Submit'];
@@ -23,7 +23,7 @@ const EMPTY_FORM = {
   phone: '',
   date_of_birth: '',
   gender: GENDERS[0],
-  department: DEPARTMENTS[0],
+  department: 'Engineering',
   role: '',
   employment_type: 'full-time',
   salary: '',
@@ -35,7 +35,7 @@ const EMPTY_FORM = {
 
 export default function EmployeeRegistration() {
   const navigate = useNavigate();
-  const { addEmployee, addOnboardingTasks } = useApp();
+  const { addEmployee, addOnboardingTasks, departments } = useApp();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
@@ -236,7 +236,7 @@ export default function EmployeeRegistration() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select label="Department" value={form.department} onChange={handleChange('department')}>
-                    {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                    {departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
                   </Select>
                   <Input label="Role / Job Title" value={form.role} onChange={handleChange('role')} error={errors.role} placeholder="e.g. Software Engineer" />
                 </div>

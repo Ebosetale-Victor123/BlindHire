@@ -7,7 +7,6 @@ import {
 import { useApp } from '../context/AppContext';
 import { useEmployees } from '../hooks/useEmployees';
 import Button from '../components/ui/Button';
-import { DEPARTMENTS } from '../data/sampleData';
 import { cn, formatNumber } from '../lib/utils';
 
 const FEATURES = [
@@ -83,7 +82,7 @@ const STEPS = [
 
 export default function Landing() {
   const navigate = useNavigate();
-  const { jobs, applications } = useApp();
+  const { jobs, applications, departments } = useApp();
   const { stats } = useEmployees();
 
   const openPositions = jobs.filter((j) => j.status === 'open').length;
@@ -92,7 +91,7 @@ export default function Landing() {
     { label: 'Employees Managed', value: stats.total },
     { label: 'Open Positions', value: openPositions },
     { label: 'Applications in Pipeline', value: applications.length },
-    { label: 'Departments', value: DEPARTMENTS.length },
+    { label: 'Departments', value: departments.length },
   ];
 
   return (

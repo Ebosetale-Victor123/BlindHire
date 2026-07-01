@@ -15,6 +15,7 @@ import {
   generatePayrollRecords,
   generatePerformanceRecords,
   generateTasks,
+  generateDepartments,
   recentActivity,
 } from '../data/sampleData';
 
@@ -69,6 +70,7 @@ export function AppProvider({ children }) {
   const [transactions, setTransactions] = useState(() => cached?.transactions ?? []);
   const [performanceRecords, setPerformanceRecords] = useState(() => cached?.performanceRecords ?? generatePerformanceRecords());
   const [tasks, setTasks] = useState(() => cached?.tasks ?? generateTasks());
+  const [departments, setDepartments] = useState(() => cached?.departments ?? generateDepartments());
   const [loading, setLoading] = useState(() => !cached);
   const [skillBridgeStats, setSkillBridgeStats] = useState({
     learningPathsSent: 0,
@@ -101,8 +103,9 @@ export function AppProvider({ children }) {
         await seedTableIfEmpty('payroll', generatePayrollRecords());
         await seedTableIfEmpty('performance_records', generatePerformanceRecords());
         await seedTableIfEmpty('tasks', generateTasks());
+        await seedTableIfEmpty('departments', generateDepartments());
 
-        const [emp, jb, ap, ob, at, lv, pr, tx, perf, tsk] = await Promise.all([
+        const [emp, jb, ap, ob, at, lv, pr, tx, perf, tsk, depts] = await Promise.all([
           fetchAll('employees'),
           fetchAll('jobs'),
           fetchAll('applications'),
@@ -113,6 +116,7 @@ export function AppProvider({ children }) {
           fetchAll('transactions'),
           fetchAll('performance_records'),
           fetchAll('tasks'),
+          fetchAll('departments'),
         ]);
 
         if (cancelled) return;
@@ -126,8 +130,9 @@ export function AppProvider({ children }) {
         if (lv?.length)   { setLeaveRequests(lv);          fresh.leaveRequests = lv; }
         if (pr?.length)   { setPayroll(pr);                fresh.payroll = pr; }
         if (tx?.length)   { setTransactions(tx);           fresh.transactions = tx; }
-        if (perf?.length) { setPerformanceRecords(perf);   fresh.performanceRecords = perf; }
-        if (tsk?.length)  { setTasks(tsk);                 fresh.tasks = tsk; }
+        if (perf?.length)  { setPerformanceRecords(perf);   fresh.performanceRecords = perf; }
+        if (tsk?.length)   { setTasks(tsk);                 fresh.tasks = tsk; }
+        if (depts?.length) { setDepartments(depts);         fresh.departments = depts; }
 
         if (Object.keys(fresh).length) {
           setCachedData({ ...cached, ...fresh });
@@ -447,6 +452,49 @@ export function AppProvider({ children }) {
   }, []);
 
   // ----------------------------------------------------------
+  // Departments
+  // ----------------------------------------------------------
+  const addDepartment = useCallback(async (deptData) => {
+    const localRecord = { ...deptData, id: deptData.id || crypto.randomUUID(), created_at: new Date().toISOString() };
+    setDepartments((prev) => [...prev, localRecord]);
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.from('departments').insert(deptData).select().single();
+        if (error) throw error;
+        if (data) setDepartments((prev) => prev.map((d) => (d.id === localRecord.id ? data : d)));
+        return data;
+      } catch (err) {
+        console.error('Failed to add department to Supabase:', err.message);
+      }
+    }
+    return localRecord;
+  }, []);
+
+  const updateDepartment = useCallback(async (id, updates) => {
+    setDepartments((prev) => prev.map((d) => (d.id === id ? { ...d, ...updates } : d)));
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('departments').update(updates).eq('id', id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Failed to update department in Supabase:', err.message);
+      }
+    }
+  }, []);
+
+  const deleteDepartment = useCallback(async (id) => {
+    setDepartments((prev) => prev.filter((d) => d.id !== id));
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('departments').delete().eq('id', id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Failed to delete department from Supabase:', err.message);
+      }
+    }
+  }, []);
+
+  // ----------------------------------------------------------
   // SkillBridge (local-only session stats)
   // ----------------------------------------------------------
   const logLearningPathSent = useCallback(() => {
@@ -475,6 +523,7 @@ export function AppProvider({ children }) {
       transactions,
       performanceRecords,
       tasks,
+      departments,
       recentActivity,
       skillBridgeStats,
       addEmployee,
@@ -495,17 +544,21 @@ export function AppProvider({ children }) {
       addPerformanceRecord,
       addTask,
       updateTask,
+      addDepartment,
+      updateDepartment,
+      deleteDepartment,
       logLearningPathSent,
       logGrowthPlanGenerated,
       logSkillGaps,
     }),
     [
       loading, employees, jobs, applications, onboarding, attendance, leaveRequests, payroll,
-      transactions, performanceRecords, tasks, skillBridgeStats,
+      transactions, performanceRecords, tasks, departments, skillBridgeStats,
       addEmployee, updateEmployee, deleteEmployee, addJob, updateJob, addApplication, updateApplication,
       addOnboardingTasks, toggleOnboardingTask, addAttendanceRecord, addLeaveRequest,
       updateLeaveRequest, setPayrollRecords, addTransaction, updateTransaction,
       addPerformanceRecord, addTask, updateTask,
+      addDepartment, updateDepartment, deleteDepartment,
       logLearningPathSent, logGrowthPlanGenerated, logSkillGaps,
     ]
   );

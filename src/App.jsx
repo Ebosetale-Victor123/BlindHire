@@ -18,6 +18,7 @@ const AttendancePage = lazy(() => import('./pages/attendance/AttendancePage'));
 const PayrollPage = lazy(() => import('./pages/payroll/PayrollPage'));
 
 const EmployeePortal = lazy(() => import('./pages/employee/EmployeePortal'));
+const Settings = lazy(() => import('./pages/settings/Settings'));
 
 function PageLoader() {
   return (
@@ -77,6 +78,8 @@ export default function App() {
               <Route path="/attendance" element={<AttendancePage />} />
 
               <Route path="/payroll" element={<PayrollPage />} />
+
+              <Route path="/settings" element={<Settings />} />
 
               <Route path="*" element={<Dashboard />} />
             </Route>

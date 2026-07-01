@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Input, Select } from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import BankAccountFields from '../../components/shared/BankAccountFields';
-import { DEPARTMENTS, EMPLOYMENT_TYPES, EMPLOYEE_STATUSES, NIGERIAN_BANKS } from '../../data/sampleData';
+import { EMPLOYMENT_TYPES, EMPLOYEE_STATUSES, NIGERIAN_BANKS } from '../../data/sampleData';
+import { useApp } from '../../context/AppContext';
 
 const EMPTY_FORM = {
   first_name: '',
@@ -10,7 +11,7 @@ const EMPTY_FORM = {
   email: '',
   personal_email: '',
   phone: '',
-  department: DEPARTMENTS[0],
+  department: 'Engineering',
   role: '',
   employment_type: 'full-time',
   status: 'active',
@@ -22,6 +23,7 @@ const EMPTY_FORM = {
 };
 
 export default function EmployeeForm({ initialValues, onSubmit, onCancel, submitLabel = 'Save Employee' }) {
+  const { departments } = useApp();
   const [form, setForm] = useState({ ...EMPTY_FORM, ...initialValues });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -80,7 +82,7 @@ export default function EmployeeForm({ initialValues, onSubmit, onCancel, submit
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Select label="Department" value={form.department} onChange={handleChange('department')}>
-          {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+          {departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
         </Select>
         <Input label="Role / Job Title" value={form.role} onChange={handleChange('role')} error={errors.role} placeholder="e.g. Software Engineer" />
       </div>

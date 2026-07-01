@@ -17,6 +17,16 @@ export const isoDaysAgo = (n) => toISO(subDays(NOW, n));
 // Reference lists for forms / filters
 // ============================================================
 export const DEPARTMENTS = ['Engineering', 'HR', 'Finance', 'Marketing', 'Operations'];
+
+export function generateDepartments() {
+  return [
+    { id: 'dept-engineering', name: 'Engineering', head_of_department: 'Adeyemi Oluwaseun' },
+    { id: 'dept-hr',          name: 'HR',          head_of_department: 'Aisha Abubakar' },
+    { id: 'dept-finance',     name: 'Finance',     head_of_department: 'Tunde Adebayo' },
+    { id: 'dept-marketing',   name: 'Marketing',   head_of_department: 'Ibrahim Musa' },
+    { id: 'dept-operations',  name: 'Operations',  head_of_department: null },
+  ];
+}
 export const EMPLOYMENT_TYPES = ['full-time', 'part-time', 'contract'];
 export const EMPLOYEE_STATUSES = ['active', 'on-leave', 'probation', 'inactive'];
 export const GENDERS = ['Male', 'Female', 'Other', 'Prefer not to say'];

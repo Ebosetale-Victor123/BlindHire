@@ -1,7 +1,7 @@
 import { Link, NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Briefcase, ClipboardList, UserPlus, Clock, DollarSign,
-  ChevronsLeft, ChevronsRight, ShieldCheck, X, ArrowUpRight,
+  ChevronsLeft, ChevronsRight, ShieldCheck, X, ArrowUpRight, Settings,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/registration', label: 'Registration', icon: UserPlus },
   { to: '/attendance', label: 'Attendance', icon: Clock },
   { to: '/payroll', label: 'Payroll', icon: DollarSign },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) {

@@ -13,13 +13,15 @@ import RemoveEmployeeModal from '../../components/shared/RemoveEmployeeModal';
 import { SkeletonRow } from '../../components/ui/Skeleton';
 import EmployeeForm from './EmployeeForm';
 import { useEmployees } from '../../hooks/useEmployees';
-import { DEPARTMENTS, EMPLOYMENT_TYPES, EMPLOYEE_STATUSES } from '../../data/sampleData';
+import { useApp } from '../../context/AppContext';
+import { EMPLOYMENT_TYPES, EMPLOYEE_STATUSES } from '../../data/sampleData';
 import { cn, formatCurrency, getInitials, avatarColor, STATUS_VARIANTS, titleCase } from '../../lib/utils';
 
 export default function EmployeeList() {
   const navigate = useNavigate();
   const location = useLocation();
   const { employees, addEmployee, updateEmployee, deleteEmployee, loading } = useEmployees();
+  const { departments } = useApp();
   const { toast, showToast, hideToast } = useToast();
 
   const [search, setSearch] = useState('');
@@ -152,7 +154,7 @@ export default function EmployeeList() {
     <div className="space-y-6">
       <PageHeader
         title="Employees"
-        subtitle={`${employees.length} total employees across ${DEPARTMENTS.length} departments`}
+        subtitle={`${employees.length} total employees across ${departments.length} departments`}
         actions={
           <Button onClick={() => setShowAddModal(true)}>
             <Plus size={16} /> Add Employee
@@ -176,7 +178,7 @@ export default function EmployeeList() {
               <Filter size={14} className="text-slate-400 hidden sm:block" />
               <Select value={department} onChange={(e) => setDepartment(e.target.value)} className="w-40">
                 <option value="all">All Departments</option>
-                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                {departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
               </Select>
             </div>
             <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-36">

@@ -7,19 +7,18 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { Input, Select, Textarea } from '../../components/ui/Input';
 import { useApp } from '../../context/AppContext';
-import { DEPARTMENTS } from '../../data/sampleData';
 import { titleCase } from '../../lib/utils';
 
 const EMPTY_JOB = {
   title: '',
-  department: DEPARTMENTS[0],
+  department: 'Engineering',
   type: 'full-time',
   description: '',
   requirements: '',
 };
 
 export default function JobListings({ onViewApplications, autoOpenPost }) {
-  const { jobs, applications, addJob } = useApp();
+  const { jobs, applications, addJob, departments } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_JOB);
   const [errors, setErrors] = useState({});
@@ -121,7 +120,7 @@ export default function JobListings({ onViewApplications, autoOpenPost }) {
           <Input label="Job Title" value={form.title} onChange={handleChange('title')} error={errors.title} placeholder="e.g. Senior Backend Engineer" />
           <div className="grid grid-cols-2 gap-4">
             <Select label="Department" value={form.department} onChange={handleChange('department')}>
-              {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+              {departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
             </Select>
             <Select label="Employment Type" value={form.type} onChange={handleChange('type')}>
               <option value="full-time">Full-time</option>
