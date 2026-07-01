@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ArrowLeftRight, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import Card, { CardHeader } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -14,7 +14,11 @@ const STATUS_MAP = {
 };
 
 export default function TransactionLog() {
-  const { transactions, employees } = useApp();
+  const { transactions, employees, refreshTransactions } = useApp();
+
+  useEffect(() => {
+    refreshTransactions?.();
+  }, []);
 
   const employeeMap = useMemo(() => {
     const m = {};
@@ -32,11 +36,6 @@ export default function TransactionLog() {
       <CardHeader
         title="Transaction Log"
         subtitle="All Paystack disbursement records"
-        action={
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-warning-50 text-warning-700 border border-warning-200">
-            🔶 Test Mode
-          </span>
-        }
       />
 
       {sorted.length === 0 ? (

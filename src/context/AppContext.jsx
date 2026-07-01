@@ -494,6 +494,33 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  // Keep transactions in localStorage cache so they survive page reloads even when
+  // the Supabase insert silently fails (e.g. schema mismatch on payroll_id).
+  useEffect(() => {
+    if (!transactions.length) return;
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      localStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify({ ...parsed, data: { ...parsed.data, transactions } })
+      );
+    } catch {
+      // ignore
+    }
+  }, [transactions]);
+
+  const refreshTransactions = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const data = await fetchAll('transactions');
+      if (data?.length) setTransactions(data);
+    } catch (err) {
+      console.error('Failed to refresh transactions:', err.message);
+    }
+  }, []);
+
   // ----------------------------------------------------------
   // SkillBridge (local-only session stats)
   // ----------------------------------------------------------
@@ -541,6 +568,7 @@ export function AppProvider({ children }) {
       setPayrollRecords,
       addTransaction,
       updateTransaction,
+      refreshTransactions,
       addPerformanceRecord,
       addTask,
       updateTask,
@@ -556,7 +584,7 @@ export function AppProvider({ children }) {
       transactions, performanceRecords, tasks, departments, skillBridgeStats,
       addEmployee, updateEmployee, deleteEmployee, addJob, updateJob, addApplication, updateApplication,
       addOnboardingTasks, toggleOnboardingTask, addAttendanceRecord, addLeaveRequest,
-      updateLeaveRequest, setPayrollRecords, addTransaction, updateTransaction,
+      updateLeaveRequest, setPayrollRecords, addTransaction, updateTransaction, refreshTransactions,
       addPerformanceRecord, addTask, updateTask,
       addDepartment, updateDepartment, deleteDepartment,
       logLearningPathSent, logGrowthPlanGenerated, logSkillGaps,
