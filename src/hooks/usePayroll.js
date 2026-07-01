@@ -48,30 +48,35 @@ export function usePayroll() {
   };
 
   const runPayroll = async (month, year) => {
-    const records = employees.map((employee) => {
-      const existing = payroll.find(
-        (p) => p.employee_id === employee.id && p.month === month && p.year === year
-      );
-      const { gross, tax, pension, netPay } = calculatePayroll(
-        employee.salary,
-        Math.round(employee.salary * 0.1),
-        existing?.deductions ?? (employee.employment_type === 'full-time' ? 5000 : 0)
-      );
-      return {
-        id: existing?.id || crypto.randomUUID(),
-        employee_id: employee.id,
-        month,
-        year,
-        basic_salary: employee.salary,
-        allowances: Math.round(employee.salary * 0.1),
-        deductions: existing?.deductions ?? (employee.employment_type === 'full-time' ? 5000 : 0),
-        tax,
-        pension,
-        net_pay: netPay,
-        status: 'processed',
-        created_at: existing?.created_at || new Date().toISOString(),
-      };
-    });
+    // Always recalculate from current employee salary — skip already-paid records
+    const records = employees
+      .filter((employee) => {
+        const existing = payroll.find(
+          (p) => p.employee_id === employee.id && p.month === month && String(p.year) === String(year)
+        );
+        return !existing || existing.status !== 'paid';
+      })
+      .map((employee) => {
+        const existing = payroll.find(
+          (p) => p.employee_id === employee.id && p.month === month && String(p.year) === String(year)
+        );
+        const allowances = Math.round(Number(employee.salary) * 0.1);
+        const { tax, pension, netPay } = calculatePayroll(employee.salary, allowances);
+        return {
+          id: existing?.id || crypto.randomUUID(),
+          employee_id: employee.id,
+          month,
+          year,
+          basic_salary: Number(employee.salary),
+          allowances,
+          deductions: 0,
+          tax,
+          pension,
+          net_pay: netPay,
+          status: 'processed',
+          created_at: existing?.created_at || new Date().toISOString(),
+        };
+      });
 
     await setPayrollRecords(records);
     return records;

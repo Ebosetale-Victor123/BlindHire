@@ -394,6 +394,7 @@ function DisburseModal({ records, employeeMap, period, transactions, addTransact
                     <th className="pb-2 font-medium text-slate-500">Bank</th>
                     <th className="pb-2 font-medium text-slate-500">Account</th>
                     <th className="pb-2 font-medium text-slate-500 text-right">Amount</th>
+                    <th className="pb-2 font-medium text-slate-500 text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -407,13 +408,21 @@ function DisburseModal({ records, employeeMap, period, transactions, addTransact
                         <td className="py-2.5 text-slate-500">{emp?.bank_name || '—'}</td>
                         <td className="py-2.5 font-mono text-slate-500">{maskAccountNumber(emp?.account_number)}</td>
                         <td className="py-2.5 text-right font-semibold text-slate-800">{formatCurrency(r.net_pay)}</td>
+                        <td className="py-2.5 text-right">
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-success-700">
+                              <CheckCircle2 size={12} /> Ready
+                            </span>
+                            <span className="text-[10px] text-warning-600 font-medium">Test Mode — Verification Skipped</span>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={3} className="pt-3 font-semibold text-slate-700">Total</td>
+                    <td colSpan={4} className="pt-3 font-semibold text-slate-700">Total</td>
                     <td className="pt-3 text-right font-bold text-slate-800">
                       {formatCurrency(eligibleRecords.reduce((s, r) => s + (r.net_pay || 0), 0))}
                     </td>

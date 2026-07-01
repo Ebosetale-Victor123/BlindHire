@@ -18,7 +18,7 @@ import { useApp } from '../../context/AppContext';
 import { generateGrowthPlan } from '../../lib/groq';
 import {
   cn, formatCurrency, formatDate, formatTime, getInitials, avatarColor,
-  STATUS_VARIANTS, titleCase,
+  STATUS_VARIANTS, titleCase, calculatePayroll,
 } from '../../lib/utils';
 
 const TABS = [
@@ -33,7 +33,7 @@ export default function EmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { getEmployeeById, updateEmployee, deleteEmployee } = useEmployees();
-  const { attendance, payroll, onboarding, logGrowthPlanGenerated } = useApp();
+  const { attendance, payroll, onboarding, logGrowthPlanGenerated, setPayrollRecords } = useApp();
   const { toast, showToast, hideToast } = useToast();
   const [activeTab, setActiveTab] = useState('Profile');
   const [showEdit, setShowEdit] = useState(false);
@@ -313,8 +313,48 @@ export default function EmployeeDetail() {
         <EmployeeForm
           initialValues={employee}
           onSubmit={async (data) => {
+            const salaryChanged = Number(data.salary) !== Number(employee.salary);
             await updateEmployee(employee.id, data);
             setShowEdit(false);
+
+            if (salaryChanged) {
+              const now = new Date();
+              const currentMonth = now.toLocaleString('en-US', { month: 'long' });
+              const currentYear = now.getFullYear();
+              const currentRecord = payroll.find(
+                (p) =>
+                  p.employee_id === employee.id &&
+                  p.month === currentMonth &&
+                  String(p.year) === String(currentYear)
+              );
+
+              if (currentRecord) {
+                if (currentRecord.status === 'paid') {
+                  showToast(
+                    `Note: Payroll already disbursed for ${currentMonth}. New salary takes effect next month.`,
+                    'warning'
+                  );
+                } else {
+                  const newSalary = Number(data.salary);
+                  const allowances = Math.round(newSalary * 0.1);
+                  const { tax, pension, netPay } = calculatePayroll(newSalary, allowances);
+                  await setPayrollRecords([{
+                    ...currentRecord,
+                    basic_salary: newSalary,
+                    allowances,
+                    deductions: 0,
+                    tax,
+                    pension,
+                    net_pay: netPay,
+                  }]);
+                  showToast(`Salary updated and payroll recalculated for ${currentMonth}`, 'success');
+                }
+              } else {
+                showToast('Salary updated successfully', 'success');
+              }
+            } else {
+              showToast('Employee profile updated', 'success');
+            }
           }}
           onCancel={() => setShowEdit(false)}
           submitLabel="Save Changes"

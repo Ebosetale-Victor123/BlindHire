@@ -78,14 +78,13 @@ export function generateEmployeeId(year = new Date().getFullYear()) {
 /**
  * Calculate Nigerian PAYE tax (simplified flat 7.5%) and pension (8%).
  */
-export function calculatePayroll(basicSalary, allowances = 0, deductions = 0) {
+export function calculatePayroll(basicSalary, allowances = 0) {
   const basic = Number(basicSalary) || 0;
   const allow = Number(allowances) || 0;
-  const ded = Number(deductions) || 0;
   const gross = basic + allow;
-  const tax = Math.round(basic * 0.075 * 100) / 100;
-  const pension = Math.round(basic * 0.08 * 100) / 100;
-  const netPay = Math.round((gross - tax - pension - ded) * 100) / 100;
+  const tax = Math.round(gross * 0.075 * 100) / 100;   // 7.5% PAYE on gross
+  const pension = Math.round(basic * 0.08 * 100) / 100; // 8% pension on basic
+  const netPay = Math.round((gross - tax - pension) * 100) / 100;
   return { gross, tax, pension, netPay };
 }
 
