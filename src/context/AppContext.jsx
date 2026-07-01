@@ -13,6 +13,8 @@ import {
   leaveRequests as sampleLeaveRequests,
   generateAttendanceRecords,
   generatePayrollRecords,
+  generatePerformanceRecords,
+  generateTasks,
   recentActivity,
 } from '../data/sampleData';
 
@@ -65,6 +67,8 @@ export function AppProvider({ children }) {
   const [leaveRequests, setLeaveRequests] = useState(() => cached?.leaveRequests ?? sampleLeaveRequests);
   const [payroll, setPayroll] = useState(() => cached?.payroll ?? generatePayrollRecords());
   const [transactions, setTransactions] = useState(() => cached?.transactions ?? []);
+  const [performanceRecords, setPerformanceRecords] = useState(() => cached?.performanceRecords ?? generatePerformanceRecords());
+  const [tasks, setTasks] = useState(() => cached?.tasks ?? generateTasks());
   const [loading, setLoading] = useState(() => !cached);
   const [skillBridgeStats, setSkillBridgeStats] = useState({
     learningPathsSent: 0,
@@ -95,8 +99,10 @@ export function AppProvider({ children }) {
         await seedTableIfEmpty('attendance', generateAttendanceRecords());
         await seedTableIfEmpty('leave_requests', sampleLeaveRequests);
         await seedTableIfEmpty('payroll', generatePayrollRecords());
+        await seedTableIfEmpty('performance_records', generatePerformanceRecords());
+        await seedTableIfEmpty('tasks', generateTasks());
 
-        const [emp, jb, ap, ob, at, lv, pr, tx] = await Promise.all([
+        const [emp, jb, ap, ob, at, lv, pr, tx, perf, tsk] = await Promise.all([
           fetchAll('employees'),
           fetchAll('jobs'),
           fetchAll('applications'),
@@ -105,19 +111,23 @@ export function AppProvider({ children }) {
           fetchAll('leave_requests'),
           fetchAll('payroll'),
           fetchAll('transactions'),
+          fetchAll('performance_records'),
+          fetchAll('tasks'),
         ]);
 
         if (cancelled) return;
 
         const fresh = {};
-        if (emp?.length) { setEmployees(emp); fresh.employees = emp; }
-        if (jb?.length) { setJobs(jb); fresh.jobs = jb; }
-        if (ap?.length) { setApplications(ap); fresh.applications = ap; }
-        if (ob?.length) { setOnboarding(ob); fresh.onboarding = ob; }
-        if (at?.length) { setAttendance(at); fresh.attendance = at; }
-        if (lv?.length) { setLeaveRequests(lv); fresh.leaveRequests = lv; }
-        if (pr?.length) { setPayroll(pr); fresh.payroll = pr; }
-        if (tx?.length) { setTransactions(tx); fresh.transactions = tx; }
+        if (emp?.length)  { setEmployees(emp);            fresh.employees = emp; }
+        if (jb?.length)   { setJobs(jb);                  fresh.jobs = jb; }
+        if (ap?.length)   { setApplications(ap);           fresh.applications = ap; }
+        if (ob?.length)   { setOnboarding(ob);             fresh.onboarding = ob; }
+        if (at?.length)   { setAttendance(at);             fresh.attendance = at; }
+        if (lv?.length)   { setLeaveRequests(lv);          fresh.leaveRequests = lv; }
+        if (pr?.length)   { setPayroll(pr);                fresh.payroll = pr; }
+        if (tx?.length)   { setTransactions(tx);           fresh.transactions = tx; }
+        if (perf?.length) { setPerformanceRecords(perf);   fresh.performanceRecords = perf; }
+        if (tsk?.length)  { setTasks(tsk);                 fresh.tasks = tsk; }
 
         if (Object.keys(fresh).length) {
           setCachedData({ ...cached, ...fresh });
@@ -174,6 +184,8 @@ export function AppProvider({ children }) {
     setAttendance((prev) => prev.filter((a) => a.employee_id !== id));
     setPayroll((prev) => prev.filter((p) => p.employee_id !== id));
     setOnboarding((prev) => prev.filter((o) => o.employee_id !== id));
+    setPerformanceRecords((prev) => prev.filter((r) => r.employee_id !== id));
+    setTasks((prev) => prev.filter((t) => t.employee_id !== id));
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('employees').delete().eq('id', id);
@@ -383,6 +395,58 @@ export function AppProvider({ children }) {
   }, []);
 
   // ----------------------------------------------------------
+  // Performance Records
+  // ----------------------------------------------------------
+  const addPerformanceRecord = useCallback(async (record) => {
+    const localRecord = { ...record, id: record.id || crypto.randomUUID(), created_at: new Date().toISOString() };
+    setPerformanceRecords((prev) => [...prev, localRecord]);
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.from('performance_records').insert(record).select().single();
+        if (error) throw error;
+        setPerformanceRecords((prev) => prev.map((r) => (r.id === localRecord.id ? data : r)));
+        return data;
+      } catch (err) {
+        console.error('Failed to add performance record to Supabase:', err.message);
+        return localRecord;
+      }
+    }
+    return localRecord;
+  }, []);
+
+  // ----------------------------------------------------------
+  // Tasks
+  // ----------------------------------------------------------
+  const addTask = useCallback(async (task) => {
+    const localRecord = { ...task, id: task.id || crypto.randomUUID(), status: 'pending', created_at: new Date().toISOString() };
+    setTasks((prev) => [...prev, localRecord]);
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.from('tasks').insert(task).select().single();
+        if (error) throw error;
+        setTasks((prev) => prev.map((t) => (t.id === localRecord.id ? data : t)));
+        return data;
+      } catch (err) {
+        console.error('Failed to add task to Supabase:', err.message);
+        return localRecord;
+      }
+    }
+    return localRecord;
+  }, []);
+
+  const updateTask = useCallback(async (id, updates) => {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('tasks').update(updates).eq('id', id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Failed to update task in Supabase:', err.message);
+      }
+    }
+  }, []);
+
+  // ----------------------------------------------------------
   // SkillBridge (local-only session stats)
   // ----------------------------------------------------------
   const logLearningPathSent = useCallback(() => {
@@ -409,6 +473,8 @@ export function AppProvider({ children }) {
       leaveRequests,
       payroll,
       transactions,
+      performanceRecords,
+      tasks,
       recentActivity,
       skillBridgeStats,
       addEmployee,
@@ -426,16 +492,20 @@ export function AppProvider({ children }) {
       setPayrollRecords,
       addTransaction,
       updateTransaction,
+      addPerformanceRecord,
+      addTask,
+      updateTask,
       logLearningPathSent,
       logGrowthPlanGenerated,
       logSkillGaps,
     }),
     [
       loading, employees, jobs, applications, onboarding, attendance, leaveRequests, payroll,
-      transactions, skillBridgeStats,
+      transactions, performanceRecords, tasks, skillBridgeStats,
       addEmployee, updateEmployee, deleteEmployee, addJob, updateJob, addApplication, updateApplication,
       addOnboardingTasks, toggleOnboardingTask, addAttendanceRecord, addLeaveRequest,
       updateLeaveRequest, setPayrollRecords, addTransaction, updateTransaction,
+      addPerformanceRecord, addTask, updateTask,
       logLearningPathSent, logGrowthPlanGenerated, logSkillGaps,
     ]
   );

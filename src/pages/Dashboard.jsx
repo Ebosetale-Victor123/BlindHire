@@ -7,7 +7,7 @@ import {
 import {
   Users, Briefcase, UserCheck, Wallet, UserPlus, FilePlus2, PlayCircle,
   ClipboardCheck, CalendarCheck, DollarSign, ArrowUpRight, CheckCircle2, XCircle,
-  GraduationCap, SendHorizonal,
+  GraduationCap, SendHorizonal, TrendingUp, TrendingDown, Minus, Target,
 } from 'lucide-react';
 import Card, { CardHeader } from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
@@ -31,7 +31,7 @@ const PIE_COLORS = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { jobs, payroll, transactions, applications, recentActivity, skillBridgeStats, loading } = useApp();
+  const { jobs, payroll, transactions, applications, recentActivity, skillBridgeStats, performanceRecords, employees, loading } = useApp();
   const { stats } = useEmployees();
   const { todayStats, trend } = useAttendance();
 
@@ -84,6 +84,30 @@ export default function Dashboard() {
   }, [skillBridgeStats.skillGaps]);
 
   const maxSkillGapCount = topSkillGaps[0]?.[1] || 1;
+
+  const teamPerformance = useMemo(() => {
+    if (!performanceRecords.length) return null;
+    // Sort by date descending, find two most recent distinct month+year combos
+    const sorted = [...performanceRecords].sort((a, b) =>
+      new Date(`${b.month} 1, ${b.year}`) - new Date(`${a.month} 1, ${a.year}`)
+    );
+    const latestKey = `${sorted[0].month}-${sorted[0].year}`;
+    const latestRecords = sorted.filter((r) => `${r.month}-${r.year}` === latestKey);
+    const avgCurrent = Math.round(latestRecords.reduce((s, r) => s + r.overall_score, 0) / latestRecords.length);
+    const olderRecords = sorted.filter((r) => `${r.month}-${r.year}` !== latestKey);
+    let avgPrev = null;
+    if (olderRecords.length) {
+      const prevKey = `${olderRecords[0].month}-${olderRecords[0].year}`;
+      const prevMonthRecords = olderRecords.filter((r) => `${r.month}-${r.year}` === prevKey);
+      avgPrev = Math.round(prevMonthRecords.reduce((s, r) => s + r.overall_score, 0) / prevMonthRecords.length);
+    }
+    const delta = avgPrev !== null ? avgCurrent - avgPrev : null;
+    const top3 = [...latestRecords].sort((a, b) => b.overall_score - a.overall_score).slice(0, 3).map((r) => {
+      const emp = employees.find((e) => e.id === r.employee_id);
+      return { ...r, name: emp ? `${emp.first_name} ${emp.last_name}` : r.employee_id.slice(0, 8) };
+    });
+    return { avgCurrent, delta, top3, period: `${sorted[0].month} ${sorted[0].year}` };
+  }, [performanceRecords, employees]);
 
   return (
     <div className="space-y-6">
@@ -208,6 +232,60 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Team Performance */}
+      {teamPerformance && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                <Target size={18} className="text-primary" /> Team Performance
+              </span>
+            }
+            subtitle={`Latest review period — ${teamPerformance.period}`}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl bg-primary-50 border border-primary-100 p-5 text-center">
+              <p className="text-xs text-slate-500 mb-1">Avg Overall Score</p>
+              <p className="text-4xl font-bold text-primary">{teamPerformance.avgCurrent}</p>
+              {teamPerformance.delta !== null && (
+                <div className={`inline-flex items-center gap-1 mt-2 text-xs font-medium px-2 py-0.5 rounded-full ${
+                  teamPerformance.delta > 0
+                    ? 'bg-success-50 text-success-700'
+                    : teamPerformance.delta < 0
+                    ? 'bg-danger-50 text-danger-700'
+                    : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {teamPerformance.delta > 0 ? <TrendingUp size={12} /> : teamPerformance.delta < 0 ? <TrendingDown size={12} /> : <Minus size={12} />}
+                  {teamPerformance.delta > 0 ? '+' : ''}{teamPerformance.delta} vs last period
+                </div>
+              )}
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Top Performers</p>
+              <div className="space-y-3">
+                {teamPerformance.top3.map((rec, i) => (
+                  <div key={rec.id} className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-slate-400 w-4">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-slate-700 truncate">{rec.name}</span>
+                        <span className="text-sm font-bold text-slate-800 ml-2">{rec.overall_score}</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${rec.overall_score >= 90 ? 'bg-success' : rec.overall_score >= 70 ? 'bg-primary' : 'bg-warning'}`}
+                          style={{ width: `${rec.overall_score}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* SkillBridge Activity */}
       <Card className="border-2 border-accent-200 bg-gradient-to-br from-accent-50 to-white">

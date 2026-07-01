@@ -840,6 +840,132 @@ export function generatePayrollRecords() {
 }
 
 // ============================================================
+// 9. PERFORMANCE RECORDS — last 3 months, all 12 employees
+// ============================================================
+const perf = (n) => `80000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+const tsk  = (n) => `90000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+export function generatePerformanceRecords() {
+  // months[0] = 3 months ago, months[1] = 2 months ago, months[2] = last month
+  const months = [3, 2, 1].map((n) => {
+    const d = subMonths(NOW, n);
+    return { month: format(d, 'MMMM'), year: d.getFullYear(), date: d };
+  });
+
+  // Per employee: [attendance_score, task_completion_score, manager_rating] × 3 months (oldest → newest)
+  const profiles = {
+    [E.ADEYEMI]:   [[88, 88, 4.2], [89, 90, 4.3], [91, 90, 4.5]], // stable excellent
+    [E.CHINONSO]:  [[62, 65, 3.0], [72, 74, 3.5], [83, 85, 4.0]], // improving ↑
+    [E.NGOZI]:     [[78, 80, 3.8], [80, 82, 3.9], [82, 83, 4.0]], // stable good
+    [E.AISHA]:     [[88, 90, 4.5], [90, 92, 4.5], [92, 93, 4.8]], // stable excellent
+    [E.FOLAKE]:    [[55, 60, 2.8], [65, 70, 3.2], [74, 78, 3.7]], // improving ↑
+    [E.TUNDE]:     [[82, 84, 4.0], [85, 86, 4.2], [88, 88, 4.4]], // stable excellent
+    [E.CHIAMAKA]:  [[68, 65, 3.2], [60, 58, 3.0], [55, 52, 2.8]], // declining ↓ (on leave)
+    [E.IBRAHIM]:   [[72, 75, 3.6], [76, 78, 3.8], [80, 82, 4.0]], // steadily improving
+    [E.FUNMILAYO]: [[60, 65, 3.0], [70, 73, 3.5], [80, 82, 4.0]], // improving ↑
+    [E.YUSUF]:     [[65, 68, 3.2], [68, 70, 3.3], [70, 72, 3.5]], // new hire, progressing
+    [E.BLESSING]:  [[58, 60, 2.8], [62, 65, 3.0], [68, 72, 3.3]], // new hire, progressing
+    [E.EMEKA]:     [[88, 90, 4.5], [76, 78, 3.8], [65, 68, 3.2]], // declining ↓ (realism)
+  };
+
+  const records = [];
+  let counter = 1;
+  Object.entries(profiles).forEach(([employeeId, monthProfiles]) => {
+    monthProfiles.forEach(([att, task, rating], idx) => {
+      const { month, year, date } = months[idx];
+      const overall = Math.round(att * 0.3 + task * 0.4 + rating * 20 * 0.3);
+      records.push({
+        id: perf(counter++),
+        employee_id: employeeId,
+        month, year,
+        attendance_score: att,
+        task_completion_score: task,
+        manager_rating: rating,
+        overall_score: overall,
+        notes: '',
+        created_at: toISO(date),
+      });
+    });
+  });
+  return records;
+}
+
+// ============================================================
+// 10. TASKS — per employee
+// ============================================================
+export function generateTasks() {
+  const defs = [
+    // [employee_id, title, status, due_days_from_now (null = completed)]
+    [E.ADEYEMI, 'Complete API documentation for authentication module', 'completed', null],
+    [E.ADEYEMI, 'Code review for payment integration pull request', 'completed', null],
+    [E.ADEYEMI, 'Set up monitoring alerts for production services', 'completed', null],
+    [E.ADEYEMI, 'Optimise slow database queries in reports module', 'pending', 7],
+
+    [E.CHINONSO, 'Build reusable data table component', 'completed', null],
+    [E.CHINONSO, 'Fix responsive layout issues on mobile dashboard', 'completed', null],
+    [E.CHINONSO, 'Write unit tests for payroll UI components', 'pending', 5],
+    [E.CHINONSO, 'Integrate new design system tokens', 'pending', 14],
+
+    [E.NGOZI, 'Implement Redis caching for employee search endpoint', 'completed', null],
+    [E.NGOZI, 'Write integration tests for leave request module', 'completed', null],
+    [E.NGOZI, 'Refactor attendance service to use async/await', 'completed', null],
+    [E.NGOZI, 'Upgrade Node.js version across backend services', 'pending', 10],
+
+    [E.AISHA, 'Complete Q2 performance review cycle for all departments', 'completed', null],
+    [E.AISHA, 'Update employee handbook with revised leave policy', 'completed', null],
+    [E.AISHA, 'Conduct exit interview for departing employee', 'completed', null],
+    [E.AISHA, 'Prepare Q3 headcount plan for leadership review', 'pending', 7],
+
+    [E.FOLAKE, 'Process onboarding documents for three new hires', 'completed', null],
+    [E.FOLAKE, 'Update HRIS records for June salary adjustments', 'completed', null],
+    [E.FOLAKE, 'Schedule Q2 appraisal meetings for Engineering team', 'pending', 3],
+    [E.FOLAKE, 'Archive leave request documentation for Q2', 'pending', 5],
+
+    [E.TUNDE, 'Complete Q2 financial close and management reporting', 'completed', null],
+    [E.TUNDE, 'Review and approve June payroll reconciliation', 'completed', null],
+    [E.TUNDE, 'Prepare budget variance analysis for board presentation', 'completed', null],
+    [E.TUNDE, 'Submit IFRS compliance report to regulatory body', 'pending', 14],
+
+    [E.CHIAMAKA, 'File May VAT returns with FIRS', 'completed', null],
+    [E.CHIAMAKA, 'Reconcile June accounts payable ledger', 'pending', 5],
+    [E.CHIAMAKA, 'Update petty cash log and reimbursements for Q2', 'pending', 7],
+
+    [E.IBRAHIM, 'Launch Q3 digital marketing campaign across channels', 'completed', null],
+    [E.IBRAHIM, 'Review agency performance reports for June', 'completed', null],
+    [E.IBRAHIM, 'Approve July social media content calendar', 'completed', null],
+    [E.IBRAHIM, 'Present Q2 campaign ROI report to leadership team', 'pending', 4],
+
+    [E.FUNMILAYO, 'Write four long-form blog articles for July content plan', 'completed', null],
+    [E.FUNMILAYO, 'Revamp company LinkedIn page copy and banners', 'completed', null],
+    [E.FUNMILAYO, 'Develop SEO keyword strategy for Q3', 'pending', 7],
+    [E.FUNMILAYO, 'Design email newsletter template for product updates', 'pending', 10],
+
+    [E.YUSUF, 'Map current procurement and operations workflow', 'completed', null],
+    [E.YUSUF, 'Shadow senior analyst for ERP onboarding training', 'completed', null],
+    [E.YUSUF, 'Submit first weekly operations summary report', 'pending', 2],
+
+    [E.BLESSING, 'Complete vendor contact and capacity database', 'completed', null],
+    [E.BLESSING, 'Shadow warehouse team for induction week', 'completed', null],
+    [E.BLESSING, 'Build vendor tracking and schedule spreadsheet', 'pending', 3],
+
+    [E.EMEKA, 'Set up CI/CD pipeline for authentication service', 'completed', null],
+    [E.EMEKA, 'Document current infrastructure and service map', 'pending', 5],
+    [E.EMEKA, 'Migrate staging environment to Kubernetes cluster', 'pending', 14],
+    [E.EMEKA, 'Investigate and resolve monitoring alert fatigue', 'pending', 7],
+  ];
+
+  return defs.map(([employee_id, title, status, dueDays], i) => ({
+    id: tsk(i + 1),
+    employee_id,
+    title,
+    status,
+    due_date: status === 'completed' ? daysAgo(5 + (i % 20)) : daysFromNow(dueDays || 7),
+    completed_at: status === 'completed' ? isoDaysAgo(3 + (i % 10)) : null,
+    created_at: isoDaysAgo(30),
+  }));
+}
+
+// ============================================================
 // 8. RECENT ACTIVITY FEED (Dashboard)
 // ============================================================
 export const recentActivity = [

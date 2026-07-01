@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Mail, AtSign, Phone, Building2, Briefcase, Calendar, Wallet, Landmark,
-  Users as UsersIcon, Pencil, FileCheck2, FileClock, CreditCard, Receipt, Trash2, Rocket,
+  Users as UsersIcon, Pencil, FileCheck2, FileClock, CreditCard, Receipt, Trash2, Rocket, Target,
 } from 'lucide-react';
 import Card, { CardHeader } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -12,6 +12,7 @@ import Table from '../../components/ui/Table';
 import Toast, { useToast } from '../../components/ui/Toast';
 import RemoveEmployeeModal from '../../components/shared/RemoveEmployeeModal';
 import GrowthPlanTab from '../../components/employees/GrowthPlanTab';
+import PerformanceTab from '../../components/employees/PerformanceTab';
 import EmployeeForm from './EmployeeForm';
 import { useEmployees } from '../../hooks/useEmployees';
 import { useApp } from '../../context/AppContext';
@@ -26,6 +27,7 @@ const TABS = [
   { key: 'Attendance' },
   { key: 'Payroll' },
   { key: 'Documents' },
+  { key: 'Performance', icon: Target },
   { key: 'Growth Plan', icon: Rocket },
 ];
 
@@ -33,7 +35,10 @@ export default function EmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { getEmployeeById, updateEmployee, deleteEmployee } = useEmployees();
-  const { attendance, payroll, onboarding, logGrowthPlanGenerated, setPayrollRecords } = useApp();
+  const {
+    attendance, payroll, onboarding, logGrowthPlanGenerated, setPayrollRecords,
+    performanceRecords, tasks, addPerformanceRecord, addTask, updateTask,
+  } = useApp();
   const { toast, showToast, hideToast } = useToast();
   const [activeTab, setActiveTab] = useState('Profile');
   const [showEdit, setShowEdit] = useState(false);
@@ -279,6 +284,19 @@ export default function EmployeeDetail() {
             )}
           </Card>
         </div>
+      )}
+
+      {/* Performance tab */}
+      {activeTab === 'Performance' && (
+        <PerformanceTab
+          employee={employee}
+          attendance={attendance}
+          tasks={tasks}
+          performanceRecords={performanceRecords}
+          onAddRecord={addPerformanceRecord}
+          onAddTask={addTask}
+          onUpdateTask={updateTask}
+        />
       )}
 
       {/* Growth Plan tab */}

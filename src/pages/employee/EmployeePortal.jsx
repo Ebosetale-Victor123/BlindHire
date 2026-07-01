@@ -7,6 +7,7 @@ import {
 import {
   ShieldCheck, ArrowRight, Mail, Briefcase, Building2, CalendarDays, UserCheck,
   Clock, UserX, Printer, FileText, LogOut, CheckCircle2, User, Banknote, AlertCircle,
+  CheckSquare, Square, Calendar, ClipboardList,
 } from 'lucide-react';
 import Card, { CardHeader } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -24,7 +25,7 @@ import {
 
 const SICK_LEAVE_ENTITLEMENT_DAYS = 10;
 const PORTAL_LEAVE_TYPES = ['Annual Leave', 'Sick Leave', 'Maternity/Paternity Leave', 'Emergency Leave', 'Unpaid Leave'];
-const TABS = ['My Profile', 'My Attendance', 'Leave Request', 'My Payslip'];
+const TABS = ['My Profile', 'My Attendance', 'Leave Request', 'My Payslip', 'My Tasks'];
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 const dayCount = (start, end) => differenceInDays(parseISO(end), parseISO(start)) + 1;
@@ -141,6 +142,7 @@ function EmployeeDashboard({ employee }) {
       {activeTab === 'My Attendance' && <AttendanceTab employee={employee} />}
       {activeTab === 'Leave Request' && <LeaveRequestTab employee={employee} />}
       {activeTab === 'My Payslip' && <PayslipTab employee={employee} />}
+      {activeTab === 'My Tasks' && <MyTasksTab employee={employee} />}
     </div>
   );
 }
@@ -590,6 +592,99 @@ function PayslipRow({ label, value, bold }) {
     <div className={cn('flex justify-between', bold && 'pt-2 border-t border-slate-100 font-semibold text-slate-800')}>
       <dt className={cn('text-slate-500', bold && 'text-slate-800')}>{label}</dt>
       <dd className={cn(!bold && 'text-slate-700')}>{formatCurrency(value)}</dd>
+    </div>
+  );
+}
+
+// ============================================================
+// Tab 5 — My Tasks
+// ============================================================
+function MyTasksTab({ employee }) {
+  const { tasks, updateTask } = useApp();
+
+  const myTasks = useMemo(
+    () => tasks
+      .filter((t) => t.employee_id === employee.id)
+      .sort((a, b) => {
+        if (a.status === 'completed' && b.status !== 'completed') return 1;
+        if (a.status !== 'completed' && b.status === 'completed') return -1;
+        if (a.due_date && b.due_date) return a.due_date < b.due_date ? -1 : 1;
+        return 0;
+      }),
+    [tasks, employee.id]
+  );
+
+  const doneCount = myTasks.filter((t) => t.status === 'completed').length;
+
+  const handleToggle = async (task) => {
+    await updateTask(task.id, {
+      status: task.status === 'completed' ? 'pending' : 'completed',
+      completed_at: task.status === 'completed' ? null : new Date().toISOString(),
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <StatCard icon={ClipboardList} label="Total Tasks" value={myTasks.length} color="primary" />
+        <StatCard icon={CheckSquare} label="Completed" value={doneCount} color="success" />
+        <StatCard icon={Clock} label="Pending" value={myTasks.length - doneCount} color="warning" />
+      </div>
+
+      <Card>
+        <CardHeader
+          title="My Tasks"
+          subtitle={`${doneCount} of ${myTasks.length} completed — tap a task to mark it done`}
+        />
+        {myTasks.length === 0 ? (
+          <div className="text-center py-10 text-slate-400">
+            <ClipboardList size={32} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No tasks assigned yet. Contact HR or your manager.</p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {myTasks.map((task) => (
+              <li
+                key={task.id}
+                className="flex items-center justify-between gap-3 py-3 border-b border-slate-50 last:border-0"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    onClick={() => handleToggle(task)}
+                    className={cn(
+                      'shrink-0 transition-colors',
+                      task.status === 'completed'
+                        ? 'text-success-600'
+                        : 'text-slate-300 hover:text-slate-500'
+                    )}
+                  >
+                    {task.status === 'completed' ? <CheckSquare size={20} /> : <Square size={20} />}
+                  </button>
+                  <div className="min-w-0">
+                    <p className={cn(
+                      'text-sm text-slate-700 truncate',
+                      task.status === 'completed' && 'line-through text-slate-400'
+                    )}>
+                      {task.title}
+                    </p>
+                    {task.due_date && (
+                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                        <Calendar size={11} /> Due {formatDate(task.due_date)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Badge
+                  variant={task.status === 'completed' ? 'success' : 'default'}
+                  className="shrink-0 capitalize"
+                >
+                  {task.status}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </div>
   );
 }
