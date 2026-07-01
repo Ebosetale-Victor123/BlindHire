@@ -28,7 +28,8 @@ const AppContext = createContext(null);
 // known data while a fresh copy is fetched in the background.
 // ----------------------------------------------------------
 const CACHE_KEY = 'blindhire_cache';
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const SEED_FLAG = 'blindhire_seeded_v1';
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes — HR data doesn't change every 5 min
 
 function getCachedData() {
   try {
@@ -50,9 +51,17 @@ function setCachedData(data) {
   }
 }
 
+function hasSeeded() {
+  try { return !!localStorage.getItem(SEED_FLAG); } catch { return false; }
+}
+function markSeeded() {
+  try { localStorage.setItem(SEED_FLAG, '1'); } catch {}
+}
+
 export function clearAppCache() {
   try {
     localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(SEED_FLAG); // force re-seed on next cold start
   } catch {
     // ignore
   }
@@ -100,24 +109,28 @@ export function AppProvider({ children }) {
       }
 
       try {
-        await seedTableIfEmpty('employees', sampleEmployees);
-        await seedTableIfEmpty('jobs', sampleJobs);
-        await seedTableIfEmpty('applications', sampleApplications);
-        await seedTableIfEmpty('onboarding', sampleOnboarding);
-        await seedTableIfEmpty('attendance', generateAttendanceRecords());
-        await seedTableIfEmpty('leave_requests', sampleLeaveRequests);
-        await seedTableIfEmpty('payroll', generatePayrollRecords());
-        // Fetch actual employee IDs (ordered by created_at) so performance_records
-        // FK constraint uses the real Supabase UUIDs instead of hardcoded demo IDs.
-        const { data: actualEmps } = await supabase
-          .from('employees')
-          .select('id')
-          .order('created_at', { ascending: true });
-        await seedTableIfEmpty('performance_records', generatePerformanceRecords(actualEmps?.map((e) => e.id)));
-        await seedTableIfEmpty('tasks', generateTasks());
-        await seedTableIfEmpty('departments', generateDepartments());
-        await seedTableIfEmpty('feedback', generateSampleFeedback());
-        await seedTableIfEmpty('queries', generateSampleQueries(actualEmps?.map((e) => e.id)));
+        // Only seed on first-ever load — localStorage flag skips all 12 seed
+        // checks on every subsequent visit, cutting ~13 Supabase calls to 0.
+        if (!hasSeeded()) {
+          await seedTableIfEmpty('employees', sampleEmployees);
+          await seedTableIfEmpty('jobs', sampleJobs);
+          await seedTableIfEmpty('applications', sampleApplications);
+          await seedTableIfEmpty('onboarding', sampleOnboarding);
+          await seedTableIfEmpty('attendance', generateAttendanceRecords());
+          await seedTableIfEmpty('leave_requests', sampleLeaveRequests);
+          await seedTableIfEmpty('payroll', generatePayrollRecords());
+          // Fetch actual employee IDs so performance_records FK uses real UUIDs.
+          const { data: actualEmps } = await supabase
+            .from('employees')
+            .select('id')
+            .order('created_at', { ascending: true });
+          await seedTableIfEmpty('performance_records', generatePerformanceRecords(actualEmps?.map((e) => e.id)));
+          await seedTableIfEmpty('tasks', generateTasks());
+          await seedTableIfEmpty('departments', generateDepartments());
+          await seedTableIfEmpty('feedback', generateSampleFeedback());
+          await seedTableIfEmpty('queries', generateSampleQueries(actualEmps?.map((e) => e.id)));
+          markSeeded();
+        }
 
         const [emp, jb, ap, ob, at, lv, pr, tx, perf, tsk, depts, fb, qrs] = await Promise.all([
           fetchAll('employees'),
