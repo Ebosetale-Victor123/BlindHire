@@ -140,7 +140,7 @@ export default function Landing() {
             </h1>
             <p className="mt-5 max-w-2xl mx-auto text-base sm:text-lg text-slate-300">
               BlindHire is an end-to-end HR management platform that pairs everyday workforce
-              tools — employees, onboarding, attendance, payroll — with AI that strips bias out
+              tools employees, onboarding, attendance, payroll with AI that strips bias out
               of recruitment before it ever reaches a human reviewer.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
