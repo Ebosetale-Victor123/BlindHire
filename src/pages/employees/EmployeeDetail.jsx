@@ -349,7 +349,7 @@ export default function EmployeeDetail() {
               if (currentRecord) {
                 if (currentRecord.status === 'paid') {
                   showToast(
-                    `Note: Payroll already disbursed for ${currentMonth}. New salary takes effect next month.`,
+                    `Payroll already disbursed for ${currentMonth}. Changes take effect next month.`,
                     'warning'
                   );
                 } else {

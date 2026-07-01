@@ -48,13 +48,24 @@ export default function PayrollDashboard({ autoRun, onAutoRunHandled, onViewPays
   const summary = selected ? getSummary(selected.month, selected.year) : { gross: 0, deductions: 0, net: 0 };
   const deptCosts = selected ? getDepartmentCosts(selected.month, selected.year) : [];
 
-  // Check if this period has already been disbursed
-  const periodDisbursed = useMemo(() => {
-    if (!records.length) return false;
-    return records.some((r) => r.status === 'paid');
-  }, [records]);
+  // True only when every record for this period has been paid
+  const allPaid = useMemo(
+    () => records.length > 0 && records.every((r) => r.status === 'paid'),
+    [records]
+  );
+
+  // Formatted date of the latest paid_at across records (for the "Paid on …" badge)
+  const paidAt = useMemo(() => {
+    if (!allPaid) return null;
+    const dates = records.map((r) => r.paid_at).filter(Boolean);
+    if (!dates.length) return null;
+    return new Date(Math.max(...dates.map((d) => new Date(d)))).toLocaleDateString('en-NG', { dateStyle: 'medium' });
+  }, [records, allPaid]);
 
   const hasProcessed = useMemo(() => records.some((r) => r.status === 'processed'), [records]);
+
+  // Run Payroll is available only when all existing records are still pending (or there are none yet)
+  const canRun = records.length === 0 || records.every((r) => r.status === 'pending');
 
   const handleRun = async () => {
     if (!selected) return;
@@ -109,17 +120,19 @@ export default function PayrollDashboard({ autoRun, onAutoRunHandled, onViewPays
                     return <option key={key} value={key}>{m.month} {m.year}</option>;
                   })}
                 </Select>
-                <Button onClick={handleRun} loading={running}>
-                  <PlayCircle size={16} /> Run Payroll
-                </Button>
-                {hasProcessed && !periodDisbursed && (
-                  <Button variant="accent" onClick={() => setShowDisburse(true)}>
-                    <SendHorizonal size={16} /> Disburse
+                {canRun && (
+                  <Button onClick={handleRun} loading={running}>
+                    <PlayCircle size={16} /> Run Payroll
                   </Button>
                 )}
-                {periodDisbursed && (
+                {hasProcessed && !allPaid && (
+                  <Button variant="accent" onClick={() => setShowDisburse(true)}>
+                    <SendHorizonal size={16} /> Disburse Payments
+                  </Button>
+                )}
+                {allPaid && (
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success-700 bg-success-50 border border-success-200 px-2.5 py-1 rounded-full">
-                    <CheckCircle2 size={12} /> Disbursed
+                    <CheckCircle2 size={12} /> {paidAt ? `Paid on ${paidAt}` : 'Paid'}
                   </span>
                 )}
               </div>
@@ -136,7 +149,7 @@ export default function PayrollDashboard({ autoRun, onAutoRunHandled, onViewPays
                 <div className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-lg bg-success-50 text-success-700 text-sm font-medium">
                   <CheckCircle2 size={16} className="shrink-0" />
                   Payroll for {selected.month} {selected.year} processed for {records.length} employees.
-                  {!periodDisbursed && (
+                  {hasProcessed && !allPaid && (
                     <button
                       onClick={() => setShowDisburse(true)}
                       className="ml-auto underline text-success-700 font-semibold whitespace-nowrap"
