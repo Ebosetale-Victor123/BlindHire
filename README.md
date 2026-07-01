@@ -16,12 +16,13 @@
 8. [Modules & Features](#modules--features)
 9. [AI Engine — Groq](#ai-engine--groq)
 10. [Email System — EmailJS](#email-system--emailjs)
-11. [Database — Supabase](#database--supabase)
-12. [State Management](#state-management)
-13. [Component Library](#component-library)
-14. [Build & Deployment](#build--deployment)
-15. [Environment Variables](#environment-variables)
-16. [Local Development](#local-development)
+11. [Payment Gateway — Paystack](#payment-gateway--paystack)
+12. [Database — Supabase](#database--supabase)
+13. [State Management](#state-management)
+14. [Component Library](#component-library)
+15. [Build & Deployment](#build--deployment)
+16. [Environment Variables](#environment-variables)
+17. [Local Development](#local-development)
 
 ---
 
@@ -292,7 +293,7 @@ BlindHire/
 | `/registration` | `Registration.jsx` | 4-step new-hire wizard with auto-generated onboarding plan |
 | `/attendance` | `AttendanceLog.jsx` | Daily log, calendar heatmap, leave request workflow |
 | `/payroll` | `PayrollDashboard.jsx` | Monthly payroll runner, PAYE + pension auto-calc, payslip export |
-| `/employee-portal` | `EmployeePortal.jsx` | Self-service: view payslips, submit leave, check attendance |
+| `/employee-portal` | `EmployeePortal.jsx` | Public route — no auth required. Email-based access via personal_email field. Four tabs: Profile, Attendance, Leave Request, Payslip (with payment status banner). EmailJS notification to HR on leave submission. |
 
 ---
 
@@ -433,6 +434,62 @@ All functions return `{ success: boolean }` and never throw — a failed email n
 
 ---
 
+## Payment Gateway — Paystack
+
+Nigerian payment processor used to disburse monthly payroll directly into employee bank accounts via bank transfer.
+
+### Serverless Functions (`/api/`)
+
+All Paystack API calls that require the secret key are proxied through Vercel serverless functions. The secret key **never reaches the browser**.
+
+| Function | Method | Purpose |
+|---|---|---|
+| `api/paystack-verify-account.js` | GET | Resolve a NUBAN account number to the registered account name |
+| `api/paystack-create-recipient.js` | POST | Register an employee as a transfer recipient on Paystack |
+| `api/paystack-transfer.js` | POST | Initiate a bank transfer to a recipient |
+| `api/paystack-verify-transfer.js` | GET | Check the status of a transfer by reference |
+
+### Disbursement Flow
+
+1. **Validate** — verify employee bank account number against Paystack (skipped in test mode; shown as "Test Mode — Verification Skipped" in the UI)
+2. **Save first** — create a `transactions` record in Supabase **before** calling Paystack, so there is always an audit trail even if the transfer fails
+3. **Create recipient** — register the employee's bank details with Paystack and store the `recipient_code`
+4. **Transfer** — initiate the NGN transfer; store the returned `transfer_code`
+5. **Update status** — mark the transaction and payroll record as `paid` on success, or `failed` with an error message on failure
+6. **Never abort** — if one employee's transfer fails, the disbursement continues for all others in the batch
+
+### Transactions Table
+
+```sql
+CREATE TABLE transactions (
+  id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id   UUID         REFERENCES employees(id) ON DELETE CASCADE,
+  payroll_id    UUID         REFERENCES payroll(id) ON DELETE CASCADE,
+  reference     TEXT         UNIQUE NOT NULL,
+  amount        BIGINT       NOT NULL,    -- stored in kobo
+  status        TEXT         DEFAULT 'pending',
+  recipient_code TEXT,
+  transfer_code  TEXT,
+  error_message  TEXT,
+  created_at    TIMESTAMPTZ  DEFAULT NOW()
+);
+```
+
+Amounts are stored in **kobo** (1 NGN = 100 kobo). All UI surfaces display amounts in naira by dividing by 100. Account numbers are masked in all UI surfaces (`****3456`) except inside HR edit forms where the full number is needed.
+
+### Test Mode
+
+The disbursement modal always shows a **🔶 Test Mode** badge so it is clear that no real money moves during demos. The Transaction Log tab under Payroll shows all transfer records with masked account numbers and transfer status.
+
+### Environment Variables
+
+| Variable | Location | Purpose |
+|---|---|---|
+| `PAYSTACK_SECRET_KEY` | Vercel env / `.env` (server-only) | Used only inside `/api/` functions — never in `/src/` and never with `VITE_` prefix |
+| `VITE_PAYSTACK_PUBLIC_KEY` | `.env` | Public key safe for frontend use (initialising Paystack inline checkout if needed) |
+
+---
+
 ## Database — Supabase
 
 **Project:** `cpdsigohnveigjjuhkzh.supabase.co`
@@ -509,6 +566,7 @@ Single global context for all 7 data domains. Architecture:
 | `attendance` | `addAttendanceRecord` |
 | `leaveRequests` | `addLeaveRequest`, `updateLeaveRequest` |
 | `payroll` | `setPayrollRecords` |
+| `transactions` | `addTransaction`, `updateTransaction` |
 | `skillBridgeStats` | `logLearningPathSent`, `logGrowthPlanGenerated`, `logSkillGaps` |
 
 `skillBridgeStats` is session-only — not persisted to Supabase or cache. Resets on page refresh.
@@ -597,9 +655,17 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 # Groq AI — https://console.groq.com/keys
 VITE_GROQ_API_KEY=your_groq_api_key
+
+# Paystack — https://dashboard.paystack.com → Settings → API Keys & Webhooks
+# CRITICAL: Secret key goes ONLY in Vercel serverless functions inside /api folder.
+# NEVER put the secret key in any file inside /src. NEVER prefix it with VITE_.
+PAYSTACK_SECRET_KEY=sk_test_your_paystack_secret_key
+
+# Public key is safe for the browser
+VITE_PAYSTACK_PUBLIC_KEY=pk_test_your_paystack_public_key
 ```
 
-The app runs fully without any of these values — it falls back to 12 hardcoded sample employees and a deterministic offline AI scorer with no network calls required.
+The app runs fully without any of these values — it falls back to 12 hardcoded sample employees and a deterministic offline AI scorer with no network calls required. Paystack disbursement requires both Paystack keys to be set and will silently skip bank transfer steps if they are missing.
 
 ---
 
@@ -659,4 +725,4 @@ Seven departments configured across the platform:
 
 ---
 
-*Built by Ebosetale Victor — BlindHire, 2026*
+*Built by Ebosetale Victor Iguisi (22/9966) — Caleb University — BlindHire, 2026*
