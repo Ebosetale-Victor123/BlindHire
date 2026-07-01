@@ -7,7 +7,7 @@ import {
 import {
   ShieldCheck, ArrowRight, Mail, Briefcase, Building2, CalendarDays, UserCheck,
   Clock, UserX, Printer, FileText, LogOut, CheckCircle2, User, Banknote, AlertCircle,
-  CheckSquare, Square, Calendar, ClipboardList, Star, Send, MessageSquare,
+  CheckSquare, Square, Calendar, ClipboardList, Send, MessageSquare, Megaphone,
   TicketCheck, ChevronRight, Filter,
 } from 'lucide-react';
 import Card, { CardHeader } from '../../components/ui/Card';
@@ -26,7 +26,15 @@ import {
 
 const SICK_LEAVE_ENTITLEMENT_DAYS = 10;
 const PORTAL_LEAVE_TYPES = ['Annual Leave', 'Sick Leave', 'Maternity/Paternity Leave', 'Emergency Leave', 'Unpaid Leave'];
-const TABS = ['My Profile', 'My Attendance', 'Leave Request', 'My Payslip', 'My Tasks', '📣 Feedback', '📣 Voice Centre'];
+const TABS = [
+  { key: 'My Profile', icon: User },
+  { key: 'My Attendance', icon: Clock },
+  { key: 'Leave Request', icon: Calendar },
+  { key: 'My Payslip', icon: FileText },
+  { key: 'My Tasks', icon: CheckSquare },
+  { key: 'Feedback', icon: MessageSquare },
+  { key: 'Voice Centre', icon: Megaphone },
+];
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 const dayCount = (start, end) => differenceInDays(parseISO(end), parseISO(start)) + 1;
@@ -108,7 +116,7 @@ function EntryScreen({ email, setEmail, error, onSubmit }) {
 }
 
 function EmployeeDashboard({ employee }) {
-  const [activeTab, setActiveTab] = useState(TABS[0]);
+  const [activeTab, setActiveTab] = useState(TABS[0].key);
 
   return (
     <div className="space-y-6">
@@ -123,18 +131,19 @@ function EmployeeDashboard({ employee }) {
       </Card>
 
       <div className="flex gap-1 border-b border-slate-200 overflow-x-auto scrollbar-thin">
-        {TABS.map((tab) => (
+        {TABS.map(({ key, icon: Icon }) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={key}
+            onClick={() => setActiveTab(key)}
             className={cn(
-              'px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
-              activeTab === tab
+              'flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
+              activeTab === key
                 ? 'border-primary text-primary'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             )}
           >
-            {tab}
+            <Icon size={14} className="shrink-0" />
+            {key}
           </button>
         ))}
       </div>
@@ -144,8 +153,8 @@ function EmployeeDashboard({ employee }) {
       {activeTab === 'Leave Request' && <LeaveRequestTab employee={employee} />}
       {activeTab === 'My Payslip' && <PayslipTab employee={employee} />}
       {activeTab === 'My Tasks' && <MyTasksTab employee={employee} />}
-      {activeTab === '📣 Feedback' && <FeedbackTab />}
-      {activeTab === '📣 Voice Centre' && <VoiceCentreTab employee={employee} />}
+      {activeTab === 'Feedback' && <FeedbackTab />}
+      {activeTab === 'Voice Centre' && <VoiceCentreTab employee={employee} />}
     </div>
   );
 }
@@ -707,20 +716,23 @@ const FEEDBACK_CATEGORIES = ['Work Environment', 'Management', 'Pay & Benefits',
 function FeedbackTab() {
   const { addFeedback } = useApp();
   const [category, setCategory] = useState(FEEDBACK_CATEGORIES[0]);
-  const [rating, setRating] = useState(0);
   const [message, setMessage] = useState('');
+  const [msgError, setMsgError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!rating) return;
+    if (!message.trim()) {
+      setMsgError('Please write a message before submitting.');
+      return;
+    }
     setSubmitting(true);
-    await addFeedback({ category, rating, message: message.trim() });
+    await addFeedback({ category, message: message.trim() });
     setSubmitted(true);
     setCategory(FEEDBACK_CATEGORIES[0]);
-    setRating(0);
     setMessage('');
+    setMsgError('');
     setSubmitting(false);
   };
 
@@ -746,37 +758,17 @@ function FeedbackTab() {
             {FEEDBACK_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </Select>
 
-          <div>
-            <p className="text-sm font-medium text-slate-700 mb-2">Rating</p>
-            <div className="flex items-center gap-1">
-              {[1, 2, 3, 4, 5].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => { setRating(s); setSubmitted(false); }}
-                  className="p-1 transition-transform hover:scale-110"
-                >
-                  <Star
-                    size={28}
-                    className={cn(s <= rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200 fill-slate-200')}
-                  />
-                </button>
-              ))}
-              {rating > 0 && <span className="ml-2 text-sm text-slate-500">{rating}/5</span>}
-            </div>
-            {!rating && <p className="text-xs text-danger-600 mt-1">Please select a rating</p>}
-          </div>
-
           <Textarea
-            label="Message (optional)"
+            label="Your Message"
             rows={4}
             value={message}
-            onChange={(e) => { setMessage(e.target.value.slice(0, 500)); setSubmitted(false); }}
-            placeholder="Share your thoughts, suggestions, or concerns..."
+            onChange={(e) => { setMessage(e.target.value.slice(0, 500)); setSubmitted(false); setMsgError(''); }}
+            placeholder="Share your thoughts, suggestions, or concerns anonymously..."
             hint={`${message.length}/500 characters`}
+            error={msgError}
           />
 
-          <Button type="submit" loading={submitting} disabled={!rating} className="w-full">
+          <Button type="submit" loading={submitting} className="w-full">
             <Send size={15} /> Submit Anonymously
           </Button>
         </form>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  Plus, Pencil, Trash2, Building2, UserCheck, Star, MessageSquare,
+  Plus, Pencil, Trash2, Building2, UserCheck, MessageSquare,
   TicketCheck, Filter, CheckCircle2, Clock, XCircle, AlertCircle,
 } from 'lucide-react';
 import Card, { CardHeader } from '../../components/ui/Card';
@@ -12,14 +12,14 @@ import Table from '../../components/ui/Table';
 import PageHeader from '../../components/shared/PageHeader';
 import { useApp } from '../../context/AppContext';
 import { sendQueryResponseNotification } from '../../lib/emailjs';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { cn, formatCurrency, formatDate } from '../../lib/utils';
 
 const EMPTY_FORM = { name: '', head_of_department: '' };
 
 const FEEDBACK_CATEGORIES = ['Work Environment', 'Management', 'Pay & Benefits', 'Career Growth', 'Team Culture', 'Other'];
 
 const TICKET_STATUS_VARIANTS = {
-  open: 'default',
+  open: 'danger',
   in_review: 'warning',
   resolved: 'success',
   rejected: 'danger',
@@ -142,31 +142,22 @@ function DepartmentsSection() {
 // ============================================================
 // Section 2 — Employee Feedback (anonymous)
 // ============================================================
-function StarDisplay({ rating }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <Star key={s} size={13} className={s <= rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200 fill-slate-200'} />
-      ))}
-    </div>
-  );
-}
-
 function FeedbackSection() {
   const { feedback } = useApp();
   const [catFilter, setCatFilter] = useState('All');
-  const [ratingFilter, setRatingFilter] = useState('All');
 
   const filtered = useMemo(() => {
     let list = [...feedback].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     if (catFilter !== 'All') list = list.filter((f) => f.category === catFilter);
-    if (ratingFilter !== 'All') list = list.filter((f) => f.rating === Number(ratingFilter));
     return list;
-  }, [feedback, catFilter, ratingFilter]);
+  }, [feedback, catFilter]);
 
-  const avgRating = useMemo(() => {
-    if (!feedback.length) return 0;
-    return (feedback.reduce((s, f) => s + f.rating, 0) / feedback.length).toFixed(1);
+  const thisMonthCount = useMemo(() => {
+    const now = new Date();
+    return feedback.filter((f) => {
+      const d = new Date(f.created_at);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
   }, [feedback]);
 
   const mostCommon = useMemo(() => {
@@ -184,22 +175,18 @@ function FeedbackSection() {
       />
 
       {/* Summary stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
-          <p className="text-xs text-slate-500 mb-1">Total Responses</p>
-          <p className="text-2xl font-bold text-slate-800">{feedback.length}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+        <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
+          <p className="text-xs text-slate-500 mb-1">Responses This Month</p>
+          <p className="text-2xl font-bold text-slate-800">{thisMonthCount}</p>
         </div>
-        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
-          <p className="text-xs text-slate-500 mb-1">Avg Rating</p>
-          <p className="text-2xl font-bold text-amber-500">{avgRating}/5</p>
-        </div>
-        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
-          <p className="text-xs text-slate-500 mb-1">Most Common Topic</p>
-          <p className="text-sm font-semibold text-slate-700 mt-1">{mostCommon}</p>
+        <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
+          <p className="text-xs text-slate-500 mb-1">Most Discussed</p>
+          <p className="text-sm font-semibold text-slate-700 mt-2">{mostCommon}</p>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Category filter */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <Filter size={14} className="text-slate-400" />
         <select
@@ -210,17 +197,9 @@ function FeedbackSection() {
           <option value="All">All Categories</option>
           {FEEDBACK_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select
-          value={ratingFilter}
-          onChange={(e) => setRatingFilter(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-        >
-          <option value="All">All Ratings</option>
-          {[5, 4, 3, 2, 1].map((r) => <option key={r} value={r}>{r} Star{r !== 1 ? 's' : ''}</option>)}
-        </select>
-        {(catFilter !== 'All' || ratingFilter !== 'All') && (
-          <button onClick={() => { setCatFilter('All'); setRatingFilter('All'); }} className="text-xs text-primary hover:underline">
-            Clear filters
+        {catFilter !== 'All' && (
+          <button onClick={() => setCatFilter('All')} className="text-xs text-primary hover:underline">
+            Clear filter
           </button>
         )}
       </div>
@@ -228,20 +207,20 @@ function FeedbackSection() {
       {filtered.length === 0 ? (
         <div className="text-center py-10 text-slate-400">
           <MessageSquare size={32} className="mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No feedback yet{catFilter !== 'All' || ratingFilter !== 'All' ? ' matching these filters' : ''}.</p>
+          <p className="text-sm">No feedback yet{catFilter !== 'All' ? ' in this category' : ''}.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {filtered.map((f) => (
             <div key={f.id} className="rounded-xl border border-slate-100 p-4">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="primary">{f.category}</Badge>
-                  <StarDisplay rating={f.rating} />
-                </div>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <Badge variant="primary">{f.category}</Badge>
                 <span className="text-xs text-slate-400 shrink-0">{formatDate(f.created_at)}</span>
               </div>
-              {f.message && <p className="text-sm text-slate-600 leading-relaxed">{f.message}</p>}
+              {f.message
+                ? <p className="text-sm text-slate-600 leading-relaxed">{f.message}</p>
+                : <p className="text-sm text-slate-400 italic">No message provided.</p>
+              }
             </div>
           ))}
         </div>
@@ -352,10 +331,10 @@ function QueryInboxSection() {
 
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-          <StatChip label="Open" value={openCount} color="text-danger-600 bg-danger-50 border-danger-100" />
-          <StatChip label="In Review" value={inReviewCount} color="text-warning-700 bg-warning-50 border-warning-100" />
-          <StatChip label="Resolved" value={resolvedCount} color="text-success-700 bg-success-50 border-success-100" />
-          <StatChip label="Pending Claims" value={formatCurrency(pendingClaimsTotal)} color="text-primary bg-primary-50 border-primary-100" />
+          <StatChip label="Open" value={openCount} className="bg-danger-50 border-danger-100 text-danger-600" />
+          <StatChip label="In Review" value={inReviewCount} className="bg-warning-50 border-warning-100 text-warning-600" />
+          <StatChip label="Resolved" value={resolvedCount} className="bg-success-50 border-success-100 text-success-600" />
+          <StatChip label="Pending Claims" value={formatCurrency(pendingClaimsTotal)} className="bg-primary-50 border-primary-100 text-primary-600" />
         </div>
 
         {/* Filters */}
@@ -563,11 +542,11 @@ function QueryInboxSection() {
   );
 }
 
-function StatChip({ label, value, color }) {
+function StatChip({ label, value, className }) {
   return (
-    <div className={`rounded-xl border p-3 text-center ${color}`}>
-      <p className="text-xs opacity-70 mb-1">{label}</p>
-      <p className="text-lg font-bold">{value}</p>
+    <div className={cn('rounded-xl border shadow-card p-4 text-center', className)}>
+      <p className="text-xs font-medium mb-1.5">{label}</p>
+      <p className="text-xl sm:text-2xl font-bold leading-none">{value}</p>
     </div>
   );
 }
