@@ -814,10 +814,10 @@ export function generatePayrollRecords() {
 
       const basic = employee.salary;
       const allowances = Math.round(basic * 0.10);
-      const deductions = employee.employment_type === 'full-time' ? 5000 : 0;
-      const tax = Math.round(basic * 0.075);
-      const pension = Math.round(basic * 0.08);
-      const net_pay = basic + allowances - tax - pension - deductions;
+      const gross = basic + allowances;
+      const tax = Math.round(gross * 0.075);   // 7.5% PAYE on gross
+      const pension = Math.round(basic * 0.08); // 8% pension on basic
+      const net_pay = gross - tax - pension;
 
       records.push({
         id: pay(counter++),
@@ -826,7 +826,7 @@ export function generatePayrollRecords() {
         year,
         basic_salary: basic,
         allowances,
-        deductions,
+        deductions: 0,
         tax,
         pension,
         net_pay,
