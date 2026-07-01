@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -54,21 +54,19 @@ export default function PerformanceTab({
     [performanceRecords, employee.id]
   );
 
-  // Live attendance score for current month
+  // Live attendance score: last 30 days (avoids 0% at month boundaries)
   const attendanceScore = useMemo(() => {
-    const thisMonth = empAttendance.filter((a) => {
-      const d = new Date(a.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
-    if (!thisMonth.length) return 0;
-    const present = thisMonth.filter((a) => a.status === 'present' || a.status === 'late').length;
-    const half = thisMonth.filter((a) => a.status === 'half-day').length;
-    return Math.round(((present + half * 0.5) / thisMonth.length) * 100);
+    const cutoff = subDays(now, 30).toISOString().slice(0, 10);
+    const recent = empAttendance.filter((a) => a.date >= cutoff);
+    if (!recent.length) return 0;
+    const present = recent.filter((a) => a.status === 'present' || a.status === 'late').length;
+    const half = recent.filter((a) => a.status === 'half-day').length;
+    return Math.round(((present + half * 0.5) / recent.length) * 100);
   }, [empAttendance, now]);
 
-  // Live task completion score
+  // Live task completion score — 100% default when no tasks assigned
   const taskScore = useMemo(() => {
-    if (!empTasks.length) return 0;
+    if (!empTasks.length) return 100;
     const done = empTasks.filter((t) => t.status === 'completed').length;
     return Math.round((done / empTasks.length) * 100);
   }, [empTasks]);

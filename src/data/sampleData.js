@@ -20,11 +20,11 @@ export const DEPARTMENTS = ['Engineering', 'HR', 'Finance', 'Marketing', 'Operat
 
 export function generateDepartments() {
   return [
-    { id: 'dept-engineering', name: 'Engineering', head_of_department: 'Adeyemi Oluwaseun' },
-    { id: 'dept-hr',          name: 'HR',          head_of_department: 'Aisha Abubakar' },
-    { id: 'dept-finance',     name: 'Finance',     head_of_department: 'Tunde Adebayo' },
-    { id: 'dept-marketing',   name: 'Marketing',   head_of_department: 'Ibrahim Musa' },
-    { id: 'dept-operations',  name: 'Operations',  head_of_department: null },
+    { name: 'Engineering', head_of_department: 'Adeyemi Oluwaseun' },
+    { name: 'HR',          head_of_department: 'Aisha Abubakar' },
+    { name: 'Finance',     head_of_department: 'Tunde Adebayo' },
+    { name: 'Marketing',   head_of_department: 'Ibrahim Musa' },
+    { name: 'Operations',  head_of_department: null },
   ];
 }
 export const EMPLOYMENT_TYPES = ['full-time', 'part-time', 'contract'];
@@ -852,33 +852,35 @@ export function generatePayrollRecords() {
 const perf = (n) => `80000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const tsk  = (n) => `90000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-export function generatePerformanceRecords() {
-  // months[0] = 3 months ago, months[1] = 2 months ago, months[2] = last month
+// Accepts optional actualEmpIds (ordered by created_at) fetched from Supabase
+// to avoid FK violations when Supabase UUIDs differ from our fixed demo IDs.
+export function generatePerformanceRecords(actualEmpIds = null) {
   const months = [3, 2, 1].map((n) => {
     const d = subMonths(NOW, n);
     return { month: format(d, 'MMMM'), year: d.getFullYear(), date: d };
   });
 
-  // Per employee: [attendance_score, task_completion_score, manager_rating] × 3 months (oldest → newest)
-  const profiles = {
-    [E.ADEYEMI]:   [[88, 88, 4.2], [89, 90, 4.3], [91, 90, 4.5]], // stable excellent
-    [E.CHINONSO]:  [[62, 65, 3.0], [72, 74, 3.5], [83, 85, 4.0]], // improving ↑
-    [E.NGOZI]:     [[78, 80, 3.8], [80, 82, 3.9], [82, 83, 4.0]], // stable good
-    [E.AISHA]:     [[88, 90, 4.5], [90, 92, 4.5], [92, 93, 4.8]], // stable excellent
-    [E.FOLAKE]:    [[55, 60, 2.8], [65, 70, 3.2], [74, 78, 3.7]], // improving ↑
-    [E.TUNDE]:     [[82, 84, 4.0], [85, 86, 4.2], [88, 88, 4.4]], // stable excellent
-    [E.CHIAMAKA]:  [[68, 65, 3.2], [60, 58, 3.0], [55, 52, 2.8]], // declining ↓ (on leave)
-    [E.IBRAHIM]:   [[72, 75, 3.6], [76, 78, 3.8], [80, 82, 4.0]], // steadily improving
-    [E.FUNMILAYO]: [[60, 65, 3.0], [70, 73, 3.5], [80, 82, 4.0]], // improving ↑
-    [E.YUSUF]:     [[65, 68, 3.2], [68, 70, 3.3], [70, 72, 3.5]], // new hire, progressing
-    [E.BLESSING]:  [[58, 60, 2.8], [62, 65, 3.0], [68, 72, 3.3]], // new hire, progressing
-    [E.EMEKA]:     [[88, 90, 4.5], [76, 78, 3.8], [65, 68, 3.2]], // declining ↓ (realism)
-  };
+  // Ordered array: [attendance_score, task_completion_score, manager_rating] × 3 months (oldest → newest)
+  const profileData = [
+    { defaultId: E.ADEYEMI,   scores: [[88, 88, 4.2], [89, 90, 4.3], [91, 90, 4.5]] },
+    { defaultId: E.CHINONSO,  scores: [[62, 65, 3.0], [72, 74, 3.5], [83, 85, 4.0]] },
+    { defaultId: E.NGOZI,     scores: [[78, 80, 3.8], [80, 82, 3.9], [82, 83, 4.0]] },
+    { defaultId: E.AISHA,     scores: [[88, 90, 4.5], [90, 92, 4.5], [92, 93, 4.8]] },
+    { defaultId: E.FOLAKE,    scores: [[55, 60, 2.8], [65, 70, 3.2], [74, 78, 3.7]] },
+    { defaultId: E.TUNDE,     scores: [[82, 84, 4.0], [85, 86, 4.2], [88, 88, 4.4]] },
+    { defaultId: E.CHIAMAKA,  scores: [[68, 65, 3.2], [60, 58, 3.0], [55, 52, 2.8]] },
+    { defaultId: E.IBRAHIM,   scores: [[72, 75, 3.6], [76, 78, 3.8], [80, 82, 4.0]] },
+    { defaultId: E.FUNMILAYO, scores: [[60, 65, 3.0], [70, 73, 3.5], [80, 82, 4.0]] },
+    { defaultId: E.YUSUF,     scores: [[65, 68, 3.2], [68, 70, 3.3], [70, 72, 3.5]] },
+    { defaultId: E.BLESSING,  scores: [[58, 60, 2.8], [62, 65, 3.0], [68, 72, 3.3]] },
+    { defaultId: E.EMEKA,     scores: [[88, 90, 4.5], [76, 78, 3.8], [65, 68, 3.2]] },
+  ];
 
   const records = [];
   let counter = 1;
-  Object.entries(profiles).forEach(([employeeId, monthProfiles]) => {
-    monthProfiles.forEach(([att, task, rating], idx) => {
+  profileData.forEach(({ defaultId, scores }, empIdx) => {
+    const employeeId = actualEmpIds?.[empIdx] ?? defaultId;
+    scores.forEach(([att, task, rating], idx) => {
       const { month, year, date } = months[idx];
       const overall = Math.round(att * 0.3 + task * 0.4 + rating * 20 * 0.3);
       records.push({

@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   Users, Briefcase, UserCheck, Wallet, UserPlus, FilePlus2, PlayCircle,
-  ClipboardCheck, CalendarCheck, DollarSign, ArrowUpRight, CheckCircle2, XCircle,
+  ClipboardCheck, CalendarCheck, DollarSign, ArrowUpRight,
   GraduationCap, SendHorizonal, TrendingUp, TrendingDown, Minus, Target,
 } from 'lucide-react';
 import Card, { CardHeader } from '../components/ui/Card';
@@ -31,14 +31,26 @@ const PIE_COLORS = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { jobs, payroll, transactions, applications, recentActivity, skillBridgeStats, performanceRecords, employees, loading } = useApp();
+  const { jobs, payroll, transactions, applications, recentActivity, skillBridgeStats, performanceRecords, employees, leaveRequests, loading } = useApp();
   const { stats } = useEmployees();
   const { todayStats, trend } = useAttendance();
 
   const openPositions = useMemo(() => jobs.filter((j) => j.status === 'open').length, [jobs]);
 
-  const hiredCandidates = useMemo(() => applications.filter((a) => a.stage === 'hired').length, [applications]);
-  const rejectedCandidates = useMemo(() => applications.filter((a) => a.stage === 'rejected').length, [applications]);
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const onLeaveToday = useMemo(
+    () => leaveRequests.filter(
+      (l) => l.status === 'approved' && l.start_date <= todayStr && l.end_date >= todayStr
+    ).length,
+    [leaveRequests, todayStr]
+  );
+
+  const avgPerformance = useMemo(() => {
+    if (!performanceRecords.length) return 0;
+    const sum = performanceRecords.reduce((s, r) => s + (r.overall_score || 0), 0);
+    return Math.round(sum / performanceRecords.length);
+  }, [performanceRecords]);
 
   const pendingPayroll = useMemo(() => {
     const pending = payroll.filter((p) => p.status === 'pending');
@@ -130,7 +142,7 @@ export default function Dashboard() {
       />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-4">
         {loading ? (
           Array.from({ length: 7 }).map((_, i) => <SkeletonCard key={i} />)
         ) : (
@@ -140,8 +152,8 @@ export default function Dashboard() {
             <StatCard icon={UserCheck} label="Present Today" value={`${todayStats.present + todayStats.late}/${todayStats.total}`} color="success" />
             <StatCard icon={Wallet} label="Pending Payroll" value={formatCurrency(pendingPayroll)} color="warning" />
             <StatCard icon={SendHorizonal} label="Disbursed This Month" value={formatCurrency(disbursedThisMonth)} color="success" />
-            <StatCard icon={CheckCircle2} label="Hired Candidates" value={hiredCandidates} color="success" />
-            <StatCard icon={XCircle} label="Rejected Candidates" value={rejectedCandidates} color="danger" />
+            <StatCard icon={CalendarCheck} label="On Leave Today" value={onLeaveToday} color="warning" />
+            <StatCard icon={Target} label="Avg Performance" value={`${avgPerformance}%`} color="primary" />
           </>
         )}
       </div>

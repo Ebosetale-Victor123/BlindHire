@@ -70,7 +70,9 @@ export function AppProvider({ children }) {
   const [transactions, setTransactions] = useState(() => cached?.transactions ?? []);
   const [performanceRecords, setPerformanceRecords] = useState(() => cached?.performanceRecords ?? generatePerformanceRecords());
   const [tasks, setTasks] = useState(() => cached?.tasks ?? generateTasks());
-  const [departments, setDepartments] = useState(() => cached?.departments ?? generateDepartments());
+  const [departments, setDepartments] = useState(() =>
+    cached?.departments ?? generateDepartments().map((d) => ({ ...d, id: crypto.randomUUID() }))
+  );
   const [loading, setLoading] = useState(() => !cached);
   const [skillBridgeStats, setSkillBridgeStats] = useState({
     learningPathsSent: 0,
@@ -101,7 +103,13 @@ export function AppProvider({ children }) {
         await seedTableIfEmpty('attendance', generateAttendanceRecords());
         await seedTableIfEmpty('leave_requests', sampleLeaveRequests);
         await seedTableIfEmpty('payroll', generatePayrollRecords());
-        await seedTableIfEmpty('performance_records', generatePerformanceRecords());
+        // Fetch actual employee IDs (ordered by created_at) so performance_records
+        // FK constraint uses the real Supabase UUIDs instead of hardcoded demo IDs.
+        const { data: actualEmps } = await supabase
+          .from('employees')
+          .select('id')
+          .order('created_at', { ascending: true });
+        await seedTableIfEmpty('performance_records', generatePerformanceRecords(actualEmps?.map((e) => e.id)));
         await seedTableIfEmpty('tasks', generateTasks());
         await seedTableIfEmpty('departments', generateDepartments());
 
