@@ -75,15 +75,38 @@ export function generateEmployeeId(year = new Date().getFullYear()) {
   return `BH-${year}-${random}`;
 }
 
+// 2026 Nigerian PAYE progressive brackets (applied to annualised gross)
+const PAYE_BRACKETS = [
+  { limit: 300_000,   rate: 0.07 },
+  { limit: 300_000,   rate: 0.11 },
+  { limit: 500_000,   rate: 0.15 },
+  { limit: 500_000,   rate: 0.19 },
+  { limit: 1_600_000, rate: 0.21 },
+  { limit: Infinity,  rate: 0.24 },
+];
+
+function computeAnnualPAYE(annualGross) {
+  let remaining = Math.max(0, annualGross);
+  let annualTax = 0;
+  for (const { limit, rate } of PAYE_BRACKETS) {
+    if (remaining <= 0) break;
+    const taxable = Math.min(remaining, limit);
+    annualTax += taxable * rate;
+    remaining -= taxable;
+  }
+  return annualTax;
+}
+
 /**
- * Calculate Nigerian PAYE tax (simplified flat 7.5%) and pension (8%).
+ * Calculate Nigerian PAYE tax (2026 progressive brackets) and pension (8% of basic).
+ * Tax is computed on annualised gross then divided by 12 for the monthly figure.
  */
 export function calculatePayroll(basicSalary, allowances = 0) {
   const basic = Number(basicSalary) || 0;
   const allow = Number(allowances) || 0;
-  const gross = basic + allow;
-  const tax = Math.round(gross * 0.075 * 100) / 100;   // 7.5% PAYE on gross
-  const pension = Math.round(basic * 0.08 * 100) / 100; // 8% pension on basic
+  const gross = basic + allow;                                      // monthly gross
+  const tax = Math.round((computeAnnualPAYE(gross * 12) / 12) * 100) / 100; // monthly PAYE
+  const pension = Math.round(basic * 0.08 * 100) / 100;            // 8% of monthly basic
   const netPay = Math.round((gross - tax - pension) * 100) / 100;
   return { gross, tax, pension, netPay };
 }

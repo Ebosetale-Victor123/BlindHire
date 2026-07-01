@@ -1,5 +1,5 @@
 import { subDays, addDays, subMonths, format, isWeekend } from 'date-fns';
-import { mulberry32 } from '../lib/utils';
+import { mulberry32, calculatePayroll } from '../lib/utils';
 
 // ============================================================
 // Helpers — all "demo" dates are relative to whenever the app
@@ -824,10 +824,7 @@ export function generatePayrollRecords() {
 
       const basic = employee.salary;
       const allowances = Math.round(basic * 0.10);
-      const gross = basic + allowances;
-      const tax = Math.round(gross * 0.075);   // 7.5% PAYE on gross
-      const pension = Math.round(basic * 0.08); // 8% pension on basic
-      const net_pay = gross - tax - pension;
+      const { gross, tax, pension, netPay: net_pay } = calculatePayroll(basic, allowances);
 
       records.push({
         id: pay(counter++),

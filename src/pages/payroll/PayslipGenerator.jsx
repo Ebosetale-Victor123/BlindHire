@@ -111,7 +111,7 @@ export default function PayslipGenerator({ initialEmployeeId }) {
               <div className="rounded-xl border border-slate-100 p-4">
                 <h4 className="text-sm font-semibold text-slate-700 mb-3">Deductions</h4>
                 <dl className="space-y-2 text-sm">
-                  <PayslipRow label="Tax (PAYE 7.5%)" value={record.tax} />
+                  <PayslipRow label="Tax (PAYE Progressive)" value={record.tax} />
                   <PayslipRow label="Pension (8%)" value={record.pension} />
                   <PayslipRow label="Other Deductions" value={record.deductions} />
                   <PayslipRow label="Total Deductions" value={record.tax + record.pension + record.deductions} bold />

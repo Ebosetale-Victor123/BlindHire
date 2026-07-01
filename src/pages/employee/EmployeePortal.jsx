@@ -527,7 +527,7 @@ function PayslipTab({ employee }) {
               <div className="rounded-xl border border-slate-100 p-4">
                 <h4 className="text-sm font-semibold text-slate-700 mb-3">Deductions</h4>
                 <dl className="space-y-2 text-sm">
-                  <PayslipRow label="PAYE Tax (7.5%)" value={record.tax} />
+                  <PayslipRow label="PAYE Tax (Progressive)" value={record.tax} />
                   <PayslipRow label="Pension (8%)" value={record.pension} />
                   {record.deductions > 0 && <PayslipRow label="Other Deductions" value={record.deductions} />}
                   <PayslipRow label="Total Deductions" value={record.tax + record.pension + (record.deductions || 0)} bold />
