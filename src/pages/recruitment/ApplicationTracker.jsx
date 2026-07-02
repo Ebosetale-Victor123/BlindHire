@@ -204,7 +204,8 @@ export default function ApplicationTracker({ jobFilter, onClearFilter, blindMode
       </div>
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="overflow-x-auto scrollbar-thin">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 min-w-0">
           {COLUMNS.map((col) => (
             <div key={col.key} className="min-w-0">
               <div className="flex items-center justify-between mb-3 px-1">
@@ -258,6 +259,7 @@ export default function ApplicationTracker({ jobFilter, onClearFilter, blindMode
               </Droppable>
             </div>
           ))}
+        </div>
         </div>
       </DragDropContext>
 

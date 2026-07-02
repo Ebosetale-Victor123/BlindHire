@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   startOfMonth, endOfMonth, eachDayOfInterval, format, isToday, getDay,
@@ -117,6 +117,14 @@ function EntryScreen({ email, setEmail, error, onSubmit }) {
 
 function EmployeeDashboard({ employee }) {
   const [activeTab, setActiveTab] = useState(TABS[0].key);
+  const tabsRef = useRef(null);
+  const activeTabRef = useRef(null);
+
+  useEffect(() => {
+    if (activeTabRef.current) {
+      activeTabRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, [activeTab]);
 
   return (
     <div className="space-y-6">
@@ -130,10 +138,11 @@ function EmployeeDashboard({ employee }) {
         </div>
       </Card>
 
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto scrollbar-thin">
+      <div ref={tabsRef} className="flex gap-1 border-b border-slate-200 overflow-x-auto scrollbar-hide">
         {TABS.map(({ key, icon: Icon }) => (
           <button
             key={key}
+            ref={activeTab === key ? activeTabRef : null}
             onClick={() => setActiveTab(key)}
             className={cn(
               'flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',

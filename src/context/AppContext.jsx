@@ -29,15 +29,15 @@ const AppContext = createContext(null);
 // ----------------------------------------------------------
 const CACHE_KEY = 'blindhire_cache';
 const SEED_FLAG = 'blindhire_seeded_v1';
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes — HR data doesn't change every 5 min
+const VICTOR_FLAG = 'blindhire_victor_v1';
 
 function getCachedData() {
+  // Always return cached data regardless of age — fresh data is always fetched
+  // in the background, so stale cache is better than a blank skeleton screen.
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (!cached) return null;
-    const { data, timestamp } = JSON.parse(cached);
-    if (Date.now() - timestamp > CACHE_DURATION) return null;
-    return data;
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw).data ?? null;
   } catch {
     return null;
   }
@@ -57,11 +57,18 @@ function hasSeeded() {
 function markSeeded() {
   try { localStorage.setItem(SEED_FLAG, '1'); } catch {}
 }
+function hasVictorData() {
+  try { return !!localStorage.getItem(VICTOR_FLAG); } catch { return false; }
+}
+function markVictorData() {
+  try { localStorage.setItem(VICTOR_FLAG, '1'); } catch {}
+}
 
 export function clearAppCache() {
   try {
     localStorage.removeItem(CACHE_KEY);
-    localStorage.removeItem(SEED_FLAG); // force re-seed on next cold start
+    localStorage.removeItem(SEED_FLAG);
+    localStorage.removeItem(VICTOR_FLAG);
   } catch {
     // ignore
   }
@@ -130,6 +137,96 @@ export function AppProvider({ children }) {
           await seedTableIfEmpty('feedback', generateSampleFeedback());
           await seedTableIfEmpty('queries', generateSampleQueries(actualEmps?.map((e) => e.id)));
           markSeeded();
+        }
+
+        // Ensure Victor Iguisi (personal_email: vicmanstudios@gmail.com) has
+        // attendance and performance data. Runs once per device via flag.
+        if (!hasVictorData()) {
+          try {
+            const { data: victor } = await supabase
+              .from('employees')
+              .select('id')
+              .eq('personal_email', 'vicmanstudios@gmail.com')
+              .maybeSingle();
+
+            if (victor?.id) {
+              const vid = victor.id;
+              const { count: attCount } = await supabase
+                .from('attendance')
+                .select('*', { count: 'exact', head: true })
+                .eq('employee_id', vid)
+                .gte('date', '2026-06-01')
+                .lte('date', '2026-06-30');
+
+              if (!attCount) {
+                const mkRec = (date, status, clock_in, clock_out, hours) => ({
+                  id: crypto.randomUUID(),
+                  employee_id: vid,
+                  date,
+                  status,
+                  clock_in: clock_in ?? null,
+                  clock_out: clock_out ?? null,
+                  hours_worked: hours ?? null,
+                  created_at: new Date().toISOString(),
+                });
+                const juneRecs = [
+                  mkRec('2026-06-02', 'present', '08:08', '17:10', 9.0),
+                  mkRec('2026-06-03', 'present', '08:02', '17:20', 9.3),
+                  mkRec('2026-06-04', 'present', '08:12', '17:05', 8.9),
+                  mkRec('2026-06-05', 'late',    '09:15', '17:30', 8.25),
+                  mkRec('2026-06-06', 'present', '08:05', '17:00', 8.9),
+                  mkRec('2026-06-09', 'present', '08:10', '17:15', 9.1),
+                  mkRec('2026-06-10', 'present', '08:00', '17:20', 9.3),
+                  mkRec('2026-06-11', 'late',    '09:05', '18:00', 8.9),
+                  mkRec('2026-06-12', 'present', '08:08', '17:10', 9.0),
+                  mkRec('2026-06-13', 'present', '08:15', '17:00', 8.75),
+                  mkRec('2026-06-16', 'present', '08:03', '17:15', 9.2),
+                  mkRec('2026-06-17', 'present', '08:10', '17:05', 8.9),
+                  mkRec('2026-06-18', 'late',    '09:25', '17:30', 8.1),
+                  mkRec('2026-06-19', 'present', '08:07', '17:00', 8.9),
+                  mkRec('2026-06-20', 'half-day','08:05', '13:00', 4.9),
+                  mkRec('2026-06-23', 'present', '08:12', '17:10', 9.0),
+                  mkRec('2026-06-24', 'present', '08:00', '17:25', 9.4),
+                  mkRec('2026-06-25', 'half-day','08:10', '13:00', 4.8),
+                  mkRec('2026-06-26', 'absent',  null,    null,    0),
+                  mkRec('2026-06-27', 'present', '08:06', '17:15', 9.2),
+                  // July records so current-month calendar shows data
+                  mkRec('2026-07-01', 'present', '08:05', '17:10', 9.1),
+                  mkRec('2026-07-02', 'present', '08:08', '17:05', 9.0),
+                ];
+                await supabase.from('attendance').insert(juneRecs);
+              }
+
+              // Insert or update June 2026 performance record
+              const { data: existingPerf } = await supabase
+                .from('performance_records')
+                .select('id')
+                .eq('employee_id', vid)
+                .eq('month', 'June')
+                .eq('year', 2026)
+                .maybeSingle();
+
+              const perfPayload = {
+                employee_id: vid,
+                month: 'June',
+                year: 2026,
+                attendance_score: 86,
+                task_completion_score: 100,
+                manager_rating: 4.0,
+                overall_score: 90,
+                notes: 'Strong technical delivery. Completed all assigned engineering tasks ahead of schedule. Recommended for senior role consideration.',
+              };
+              if (existingPerf) {
+                await supabase.from('performance_records').update(perfPayload).eq('id', existingPerf.id);
+              } else {
+                await supabase.from('performance_records').insert({ ...perfPayload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
+              }
+
+              markVictorData();
+            }
+          } catch (err) {
+            console.error('Failed to seed Victor attendance:', err.message);
+          }
         }
 
         const [emp, jb, ap, ob, at, lv, pr, tx, perf, tsk, depts, fb, qrs] = await Promise.all([

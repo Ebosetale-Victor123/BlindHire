@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { format, subDays } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { useApp } from '../../context/AppContext';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -60,14 +60,23 @@ export default function PerformanceTab({
     [performanceRecords, employee.id]
   );
 
-  // Live attendance score: last 30 days (avoids 0% at month boundaries)
+  // Live attendance score: current month, fall back to previous month if no data
   const attendanceScore = useMemo(() => {
-    const cutoff = subDays(now, 30).toISOString().slice(0, 10);
-    const recent = empAttendance.filter((a) => a.date >= cutoff);
-    if (!recent.length) return 0;
-    const present = recent.filter((a) => a.status === 'present' || a.status === 'late').length;
-    const half = recent.filter((a) => a.status === 'half-day').length;
-    return Math.round(((present + half * 0.5) / recent.length) * 100);
+    const monthStart = format(startOfMonth(now), 'yyyy-MM-dd');
+    const today = format(now, 'yyyy-MM-dd');
+    let records = empAttendance.filter((a) => a.date >= monthStart && a.date <= today);
+
+    if (!records.length) {
+      const prev = subMonths(now, 1);
+      const prevStart = format(startOfMonth(prev), 'yyyy-MM-dd');
+      const prevEnd = format(endOfMonth(prev), 'yyyy-MM-dd');
+      records = empAttendance.filter((a) => a.date >= prevStart && a.date <= prevEnd);
+    }
+
+    if (!records.length) return 0;
+    const present = records.filter((a) => a.status === 'present' || a.status === 'late').length;
+    const half = records.filter((a) => a.status === 'half-day').length;
+    return Math.round(((present + half * 0.5) / records.length) * 100);
   }, [empAttendance, now]);
 
   // Live task completion score — 100% default when no tasks assigned

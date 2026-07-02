@@ -88,28 +88,37 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
           ))}
         </nav>
 
-        {/* Employee Portal link */}
+        {/* Employee Portal link — always visible on mobile and desktop */}
         <div className="px-3 pt-2 border-t border-white/10">
           <a
             href="/employee-portal"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
-            title={collapsed ? 'Employee Portal' : undefined}
+            title={collapsed && !mobileOpen ? 'Employee Portal' : undefined}
           >
             <ArrowUpRight size={20} className="shrink-0" />
-            {!collapsed && <span className="whitespace-nowrap">Employee Portal →</span>}
+            {(!collapsed || mobileOpen) && <span className="whitespace-nowrap">Employee Portal →</span>}
           </a>
         </div>
 
-        {/* Collapse toggle */}
-        <div className="p-3 hidden lg:block">
+        {/* Collapse / Close toggle — visible on all screen sizes */}
+        <div className="p-3">
           <button
-            onClick={onToggleCollapse}
+            onClick={mobileOpen ? onCloseMobile : onToggleCollapse}
             className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
           >
-            {collapsed ? <ChevronsRight size={20} /> : <ChevronsLeft size={20} />}
-            {!collapsed && <span>Collapse</span>}
+            {mobileOpen ? (
+              <>
+                <X size={20} className="shrink-0" />
+                <span>Close Sidebar</span>
+              </>
+            ) : (
+              <>
+                {collapsed ? <ChevronsRight size={20} /> : <ChevronsLeft size={20} />}
+                {!collapsed && <span>Collapse</span>}
+              </>
+            )}
           </button>
         </div>
       </aside>

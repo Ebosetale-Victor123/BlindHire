@@ -544,9 +544,9 @@ function QueryInboxSection() {
 
 function StatChip({ label, value, className }) {
   return (
-    <div className={cn('rounded-xl border shadow-card p-4 text-center', className)}>
-      <p className="text-xs font-medium mb-1.5">{label}</p>
-      <p className="text-xl sm:text-2xl font-bold leading-none">{value}</p>
+    <div className={cn('rounded-2xl border shadow-card p-4 sm:p-5 text-center min-w-0', className)}>
+      <p className="text-xs font-semibold uppercase tracking-wide mb-2 opacity-80">{label}</p>
+      <p className="text-2xl sm:text-3xl font-bold leading-none break-words">{value}</p>
     </div>
   );
 }
