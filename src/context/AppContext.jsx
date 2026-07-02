@@ -18,7 +18,7 @@ import {
   generateDepartments,
   generateSampleFeedback,
   generateSampleQueries,
-  recentActivity,
+  recentActivity as sampleRecentActivity,
 } from '../data/sampleData';
 
 const AppContext = createContext(null);
@@ -93,6 +93,7 @@ export function AppProvider({ children }) {
   );
   const [feedback, setFeedback] = useState(() => cached?.feedback ?? generateSampleFeedback());
   const [queries, setQueries] = useState(() => cached?.queries ?? generateSampleQueries());
+  const [activityFeed, setActivityFeed] = useState(() => sampleRecentActivity);
   const [loading, setLoading] = useState(() => !cached);
   const [skillBridgeStats, setSkillBridgeStats] = useState({
     learningPathsSent: 0,
@@ -429,6 +430,23 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  const addActivity = useCallback((item) => {
+    setActivityFeed((prev) => [
+      { id: Date.now(), icon: item.icon ?? 'ClipboardCheck', text: item.text, time: new Date().toISOString() },
+      ...prev,
+    ]);
+  }, []);
+
+  const refreshOnboarding = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const data = await fetchAll('onboarding');
+      if (data?.length) setOnboarding(data);
+    } catch (err) {
+      console.error('Failed to refresh onboarding:', err.message);
+    }
+  }, []);
+
   // ----------------------------------------------------------
   // Attendance
   // ----------------------------------------------------------
@@ -740,7 +758,7 @@ export function AppProvider({ children }) {
       departments,
       feedback,
       queries,
-      recentActivity,
+      recentActivity: activityFeed,
       skillBridgeStats,
       addEmployee,
       updateEmployee,
@@ -751,6 +769,8 @@ export function AppProvider({ children }) {
       updateApplication,
       addOnboardingTasks,
       toggleOnboardingTask,
+      addActivity,
+      refreshOnboarding,
       addAttendanceRecord,
       addLeaveRequest,
       updateLeaveRequest,
@@ -774,9 +794,9 @@ export function AppProvider({ children }) {
     }),
     [
       loading, employees, jobs, applications, onboarding, attendance, leaveRequests, payroll,
-      transactions, performanceRecords, tasks, departments, feedback, queries, skillBridgeStats,
+      transactions, performanceRecords, tasks, departments, feedback, queries, activityFeed, skillBridgeStats,
       addEmployee, updateEmployee, deleteEmployee, addJob, updateJob, addApplication, updateApplication,
-      addOnboardingTasks, toggleOnboardingTask, addAttendanceRecord, addLeaveRequest,
+      addOnboardingTasks, toggleOnboardingTask, addActivity, refreshOnboarding, addAttendanceRecord, addLeaveRequest,
       updateLeaveRequest, setPayrollRecords, addTransaction, updateTransaction, refreshTransactions,
       addPerformanceRecord, addTask, updateTask, refreshTasks,
       addFeedback, addQuery, updateQuery,

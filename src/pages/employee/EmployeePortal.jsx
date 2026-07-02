@@ -6,7 +6,7 @@ import {
 } from 'date-fns';
 import {
   ShieldCheck, ArrowRight, Mail, Briefcase, Building2, CalendarDays, UserCheck,
-  Clock, UserX, Printer, FileText, LogOut, CheckCircle2, User, Banknote, AlertCircle,
+  Clock, UserX, Printer, FileText, LogOut, CheckCircle2, Circle, User, Banknote, AlertCircle,
   CheckSquare, Square, Calendar, ClipboardList, Send, MessageSquare, Megaphone,
   TicketCheck, ChevronRight, Filter,
 } from 'lucide-react';
@@ -36,6 +36,7 @@ const TABS = [
   { key: 'Voice Centre', icon: Megaphone },
 ];
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const ONBOARDING_CATEGORY_ORDER = ['Documentation', 'IT Setup', 'Orientation', 'Training'];
 
 const dayCount = (start, end) => differenceInDays(parseISO(end), parseISO(start)) + 1;
 
@@ -618,10 +619,10 @@ function PayslipRow({ label, value, bold }) {
 }
 
 // ============================================================
-// Tab 5 — My Tasks
+// Tab 5 — My Tasks (+ My Onboarding when applicable)
 // ============================================================
 function MyTasksTab({ employee }) {
-  const { tasks, updateTask, refreshTasks } = useApp();
+  const { tasks, updateTask, refreshTasks, onboarding, toggleOnboardingTask, addActivity } = useApp();
 
   useEffect(() => { refreshTasks?.(); }, []);
 
@@ -639,6 +640,28 @@ function MyTasksTab({ employee }) {
 
   const doneCount = myTasks.filter((t) => t.status === 'completed').length;
 
+  // Onboarding tasks — shown only if hired within last 90 days
+  const myOnboarding = useMemo(
+    () => onboarding
+      .filter((t) => t.employee_id === employee.id)
+      .sort((a, b) => (a.due_date < b.due_date ? -1 : 1)),
+    [onboarding, employee.id]
+  );
+  const daysSinceHire = differenceInDays(new Date(), parseISO(employee.hire_date || new Date().toISOString()));
+  const showOnboarding = myOnboarding.length > 0 && daysSinceHire <= 90;
+
+  const handleOnboardingToggle = async (task) => {
+    if (task.completed) return;
+    const pendingAfter = myOnboarding.filter((t) => !t.completed && t.id !== task.id);
+    await toggleOnboardingTask(task.id, true);
+    if (pendingAfter.length === 0) {
+      addActivity({
+        icon: 'ClipboardCheck',
+        text: `${employee.first_name} ${employee.last_name} completed onboarding`,
+      });
+    }
+  };
+
   const handleToggle = async (task) => {
     await updateTask(task.id, {
       status: task.status === 'completed' ? 'pending' : 'completed',
@@ -648,6 +671,8 @@ function MyTasksTab({ employee }) {
 
   return (
     <div className="space-y-4">
+      {showOnboarding && <OnboardingChecklist tasks={myOnboarding} employee={employee} onToggle={handleOnboardingToggle} />}
+
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <StatCard icon={ClipboardList} label="Total Tasks" value={myTasks.length} color="primary" />
         <StatCard icon={CheckSquare} label="Completed" value={doneCount} color="success" />
@@ -714,6 +739,99 @@ function MyTasksTab({ employee }) {
         )}
       </Card>
     </div>
+  );
+}
+
+// ============================================================
+// Onboarding Checklist (inside My Tasks tab)
+// ============================================================
+function OnboardingChecklist({ tasks, employee, onToggle }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const completed = tasks.filter((t) => t.completed).length;
+  const total = tasks.length;
+  const allDone = total > 0 && completed === total;
+  const progress = total ? Math.round((completed / total) * 100) : 0;
+
+  return (
+    <Card>
+      <CardHeader
+        title={<span className="flex items-center gap-2"><ClipboardList size={16} className="text-primary shrink-0" /> My Onboarding</span>}
+        subtitle={allDone ? 'All onboarding tasks complete!' : `${completed} of ${total} tasks completed — tap to mark done`}
+        action={allDone && <Badge variant="success"><CheckCircle2 size={13} className="inline mr-1" />Complete</Badge>}
+      />
+
+      {/* Progress bar */}
+      <div className="mb-4">
+        <div className="flex justify-between text-xs text-slate-500 mb-1.5">
+          <span>{completed} of {total}</span>
+          <span className="font-semibold text-slate-700">{progress}%</span>
+        </div>
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className={cn('h-full rounded-full transition-all duration-500', allDone ? 'bg-success' : 'bg-primary')}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      {allDone ? (
+        <div className="flex items-center gap-3 rounded-xl bg-success-50 border border-success-100 p-4">
+          <CheckCircle2 size={22} className="text-success-600 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-success-700">Onboarding Complete!</p>
+            <p className="text-xs text-success-600 mt-0.5">
+              You've finished all required onboarding tasks. Welcome to the team, {employee.first_name}!
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {ONBOARDING_CATEGORY_ORDER.map((category) => {
+            const catTasks = tasks.filter((t) => t.category === category);
+            if (!catTasks.length) return null;
+            return (
+              <div key={category}>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">{category}</p>
+                <ul className="space-y-2">
+                  {catTasks.map((task) => {
+                    const overdue = !task.completed && task.due_date < todayStr;
+                    return (
+                      <li
+                        key={task.id}
+                        onClick={() => !task.completed && onToggle(task)}
+                        className={cn(
+                          'flex items-start gap-3 p-2.5 rounded-lg transition-colors select-none',
+                          task.completed ? 'opacity-60 cursor-default'
+                            : overdue ? 'bg-danger-50 hover:bg-danger-100 cursor-pointer'
+                            : 'hover:bg-slate-50 cursor-pointer'
+                        )}
+                      >
+                        {task.completed ? (
+                          <CheckCircle2 size={18} className="text-success-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <Circle size={18} className={cn('shrink-0 mt-0.5', overdue ? 'text-danger-400' : 'text-slate-300')} />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className={cn('text-sm', task.completed ? 'text-slate-400 line-through' : 'text-slate-700')}>
+                            {task.task}
+                          </p>
+                          <p className={cn('text-xs mt-0.5', overdue && !task.completed ? 'text-danger-600 font-medium' : 'text-slate-400')}>
+                            Due {formatDate(task.due_date)}
+                          </p>
+                        </div>
+                        {overdue && !task.completed && (
+                          <Badge variant="danger" className="shrink-0 text-xs">Overdue</Badge>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }
 

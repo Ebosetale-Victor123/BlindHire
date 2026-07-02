@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { differenceInDays, parseISO } from 'date-fns';
 import {
@@ -21,7 +21,10 @@ const CATEGORY_ICONS = {
 const CATEGORY_ORDER = ['Documentation', 'IT Setup', 'Orientation', 'Training'];
 
 export default function OnboardingTracker() {
-  const { employees, onboarding, toggleOnboardingTask } = useApp();
+  const { employees, onboarding, refreshOnboarding } = useApp();
+
+  // Fetch fresh onboarding state every time HR visits this page
+  useEffect(() => { refreshOnboarding(); }, []);
 
   const groups = useMemo(() => {
     const map = {};
@@ -91,9 +94,13 @@ export default function OnboardingTracker() {
                         className={cn('h-full rounded-full', g.progress >= 75 ? 'bg-success' : g.progress >= 40 ? 'bg-warning' : 'bg-danger')}
                       />
                     </div>
-                    <p className="text-xs text-slate-400 mt-2">
-                      Started {formatDate(g.employee.hire_date)} · Day {dayNumber}
-                    </p>
+                    {g.progress === 100 ? (
+                      <Badge variant="success" className="mt-2 text-xs">✓ Onboarding Complete</Badge>
+                    ) : (
+                      <p className="text-xs text-slate-400 mt-2">
+                        Started {formatDate(g.employee.hire_date)} · Day {dayNumber}
+                      </p>
+                    )}
                   </Card>
                 </button>
               );
@@ -104,7 +111,12 @@ export default function OnboardingTracker() {
             <Card>
               <CardHeader
                 title={`${selected.employee.first_name} ${selected.employee.last_name}'s Checklist`}
-                subtitle={`${selected.completed} of ${selected.total} onboarding tasks complete`}
+                subtitle={selected.progress === 100 ? 'All tasks completed — onboarding finished!' : `${selected.completed} of ${selected.total} tasks complete · employees tick these in their portal`}
+                action={selected.progress === 100 && (
+                  <Badge variant="success" className="flex items-center gap-1">
+                    <CheckCircle2 size={13} /> Onboarding Complete
+                  </Badge>
+                )}
               />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-5">
                 {CATEGORY_ORDER.map((category) => {
@@ -122,10 +134,9 @@ export default function OnboardingTracker() {
                           return (
                             <li
                               key={task.id}
-                              onClick={() => toggleOnboardingTask(task.id, !task.completed)}
                               className={cn(
-                                'flex items-start gap-3 p-2.5 rounded-lg cursor-pointer transition-colors',
-                                overdue ? 'bg-danger-50 hover:bg-danger-100' : 'hover:bg-slate-50'
+                                'flex items-start gap-3 p-2.5 rounded-lg',
+                                overdue ? 'bg-danger-50' : ''
                               )}
                             >
                               {task.completed ? (
