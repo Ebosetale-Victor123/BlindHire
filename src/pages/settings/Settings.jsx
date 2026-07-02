@@ -331,10 +331,10 @@ function QueryInboxSection() {
 
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-          <StatChip label="Open" value={openCount} className="bg-danger-50 border-danger-100 text-danger-600" />
-          <StatChip label="In Review" value={inReviewCount} className="bg-warning-50 border-warning-100 text-warning-600" />
-          <StatChip label="Resolved" value={resolvedCount} className="bg-success-50 border-success-100 text-success-600" />
-          <StatChip label="Pending Claims" value={formatCurrency(pendingClaimsTotal)} className="bg-primary-50 border-primary-100 text-primary-600" />
+          <StatChip label="Open" value={openCount} icon={AlertCircle} color="danger" />
+          <StatChip label="In Review" value={inReviewCount} icon={Clock} color="warning" />
+          <StatChip label="Resolved" value={resolvedCount} icon={CheckCircle2} color="success" />
+          <StatChip label="Pending Claims" value={formatCurrency(pendingClaimsTotal)} icon={TicketCheck} color="primary" />
         </div>
 
         {/* Filters */}
@@ -542,11 +542,24 @@ function QueryInboxSection() {
   );
 }
 
-function StatChip({ label, value, className }) {
+const STAT_CHIP_COLORS = {
+  danger:  { icon: 'bg-danger-50 text-danger-600',  value: 'text-danger-600'  },
+  warning: { icon: 'bg-warning-50 text-warning-600', value: 'text-warning-600' },
+  success: { icon: 'bg-success-50 text-success-600', value: 'text-success-600' },
+  primary: { icon: 'bg-primary-50 text-primary-600', value: 'text-primary'     },
+};
+
+function StatChip({ label, value, icon: Icon, color = 'primary' }) {
+  const c = STAT_CHIP_COLORS[color] || STAT_CHIP_COLORS.primary;
   return (
-    <div className={cn('rounded-2xl border shadow-card p-4 sm:p-5 text-center min-w-0', className)}>
-      <p className="text-xs font-semibold uppercase tracking-wide mb-2 opacity-80">{label}</p>
-      <p className="text-2xl sm:text-3xl font-bold leading-none break-words">{value}</p>
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-card p-4 sm:p-5 flex items-center gap-3 min-w-0">
+      <div className={cn('p-2.5 rounded-xl shrink-0', c.icon)}>
+        {Icon && <Icon size={18} />}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500 leading-snug truncate">{label}</p>
+        <p className={cn('text-xl sm:text-2xl font-bold leading-tight break-words', c.value)}>{value}</p>
+      </div>
     </div>
   );
 }
